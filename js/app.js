@@ -533,7 +533,9 @@
         b.setAttribute('aria-pressed', st ? 'true' : 'false');
         b.setAttribute('aria-label', b.getAttribute('data-n') + '번' + (st === 'fix' ? ', 고정수' : st === 'exc' ? ', 제외수' : ''));
       });
-      $('#pick-count').innerHTML = '고정수 <b class="num">' + list('fix').length + '</b>/' + MAXF + ' · 제외수 <b class="num">' + list('exc').length + '</b>/' + MAXX;
+      $('#cnt-fix').textContent = list('fix').length;
+      $('#cnt-exc').textContent = list('exc').length;
+      hint();
     }
     board.addEventListener('click', function (e) {
       var b = e.target.closest('[data-n]'); if (!b) return;
@@ -545,10 +547,17 @@
       }
       paint();
     });
+    // 지금 어떤 종류를 고르는 중인지 번호판 위에 알려 줍니다.
+    function hint() {
+      $('#pick-count').innerHTML = mode === 'fix'
+        ? '<i class="dot fix"></i>번호를 누르면 <b>꼭 넣을 번호</b>로 표시돼요. 다시 누르면 빠져요.'
+        : '<i class="dot exc"></i>번호를 누르면 <b>뺄 번호</b>로 표시돼요. 다시 누르면 빠져요.';
+    }
     $$('#mode button').forEach(function (b) {
       b.addEventListener('click', function () {
         mode = b.getAttribute('data-mode');
         $$('#mode button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        hint();
       });
     });
     $('#reset').addEventListener('click', function () { state = {}; paint(); toast('고른 번호를 모두 지웠습니다'); });

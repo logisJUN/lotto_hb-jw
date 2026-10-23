@@ -34,11 +34,17 @@
         <h2 class="card-title" id="board-title">1. 번호 고르기</h2>
         <button class="btn btn-ghost btn-sm" type="button" id="reset">초기화</button>
       </div>
-      <div class="seg" id="mode" role="group" aria-label="고르는 방식">
-        <button type="button" data-mode="fix" aria-pressed="true">꼭 넣을 번호 (고정수)</button>
-        <button type="button" data-mode="exc" aria-pressed="false">뺄 번호 (제외수)</button>
+      <div class="mode-pick" id="mode" role="group" aria-label="번호판을 눌렀을 때 표시할 종류">
+        <button type="button" class="mode-btn fix" data-mode="fix" aria-pressed="true">
+          <span class="mode-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+          <span class="mode-txt"><b>꼭 넣을 번호</b><small>고정수 <span class="num" id="cnt-fix">0</span> / 5</small></span>
+        </button>
+        <button type="button" class="mode-btn exc" data-mode="exc" aria-pressed="false">
+          <span class="mode-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg></span>
+          <span class="mode-txt"><b>뺄 번호</b><small>제외수 <span class="num" id="cnt-exc">0</span> / 30</small></span>
+        </button>
       </div>
-      <p class="muted" style="margin:12px 2px" id="pick-count" aria-live="polite"></p>
+      <p class="mode-hint" id="pick-count" aria-live="polite"></p>
       <div class="board" id="board"></div>
       <div class="legend" aria-hidden="true">
         <span><i style="background:var(--primary)"></i>고정수</span>
