@@ -135,6 +135,26 @@
   function hitsOf(nums, d) { return nums.filter(function (n) { return d.numbers.indexOf(n) >= 0 || n === d.bonus; }); }
   var RANK_TEXT = ['낙첨', '1등', '2등', '3등', '4등', '5등'];
 
+  /* 내 번호 6개와 가장 많이 맞은 회차 찾기
+     1) 모든 회차의 당첨번호 6개(보너스 제외)와 비교해 맞은 개수를 셉니다.
+     2) 3개 이상 맞은 회차만 남깁니다. (3개 미만은 5등에도 들지 못함)
+     3) 맞은 개수가 많은 순 → 같으면 보너스 번호까지 맞은 회차(5개+보너스는 2등) → 같으면 최근 회차 순으로 줄 세워 앞의 limit개를 고릅니다.
+     4) 고른 회차를 회차 번호 내림차순(최신 회차가 위)으로 돌려줍니다.
+     summary에는 3·4·5·6개 맞은 회차가 각각 몇 번인지 담습니다. */
+  function findBestMatches(nums, draws, limit, min) {
+    limit = limit || 5; min = min || 3;
+    var summary = { 3: 0, 4: 0, 5: 0, 6: 0 }, hits = [];
+    draws.forEach(function (d) {
+      var matched = nums.filter(function (n) { return d.numbers.indexOf(n) >= 0; });
+      if (matched.length < min) return;
+      summary[matched.length]++;
+      hits.push({ draw: d, matched: matched, count: matched.length, bonus: nums.indexOf(d.bonus) >= 0, rank: rankOf(nums, d) });
+    });
+    hits.sort(function (a, b) { return b.count - a.count || (b.bonus - a.bonus) || b.draw.round - a.draw.round; });
+    var top = hits.slice(0, limit).sort(function (a, b) { return b.draw.round - a.draw.round; });
+    return { top: top, total: hits.length, summary: summary };
+  }
+
   /* =====================================================
      공통 틀: 머리말, 하단 탭, 테마
      ===================================================== */
@@ -231,6 +251,38 @@
         (withSave ? '<div class="game-actions"><button class="icon-btn" type="button" data-save="' + i + '" aria-label="' + L + ' 게임 저장">' + icon('save') + '</button></div>' : '') +
         '</div>';
     }).join('');
+  }
+
+  /* =====================================================
+     번호 6개 고르기 판 (당첨 조회 + 통계의 "가장 많이 맞은 회차")
+     ===================================================== */
+  // board 요소에 1~45 번호를 그리고, 누를 때마다 고른 번호(최대 6개)를 onChange로 알려 줍니다.
+  function makePicker(board, onChange) {
+    var picked = [], html = '';
+    for (var n = 1; n <= 45; n++) html += '<button type="button" data-n="' + n + '" aria-pressed="false" aria-label="' + n + '번">' + ball(n) + '</button>';
+    board.innerHTML = html;
+    function paint() {
+      $$('button', board).forEach(function (b) {
+        var on = picked.indexOf(+b.getAttribute('data-n')) >= 0;
+        if (on) b.setAttribute('data-state', 'pick'); else b.removeAttribute('data-state');
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      board.classList.toggle('board-dim', picked.length === 6);   // 6개를 다 고르면 나머지를 흐리게
+      onChange(picked.slice().sort(byNum));
+    }
+    board.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-n]'); if (!b) return;
+      var x = +b.getAttribute('data-n'), i = picked.indexOf(x);
+      if (i >= 0) picked.splice(i, 1);                 // 고른 번호를 다시 누르면 빠짐
+      else if (picked.length < 6) picked.push(x);
+      else { toast('6개까지 고를 수 있어요. 바꿀 번호를 먼저 눌러 빼 주세요'); return; }
+      paint();
+    });
+    paint();
+    return {
+      get: function () { return picked.slice().sort(byNum); },
+      set: function (nums) { picked = nums.slice(0, 6); paint(); }
+    };
   }
 
   /* =====================================================
@@ -514,7 +566,55 @@
         });
       });
       render();
+      initBestMatch(draws);
     }).catch(function () { loadError(root); });
+  }
+
+  /* 통계: "내 번호와 가장 많이 맞은 회차" 버튼 → 번호 고르기 창 → 조회 결과 카드 */
+  function initBestMatch(draws) {
+    var sheet = $('#best-sheet'), runBtn = $('#best-run'), result = $('#best-result');
+    var picker = makePicker($('#best-board'), function (picked) {
+      $('#best-status').textContent = picked.length === 6 ? '6개를 모두 골랐어요. 조회해 보세요' : picked.length + ' / 6개 선택 (6개를 모두 골라야 조회할 수 있어요)';
+      runBtn.disabled = picked.length !== 6;                   // 6개가 아니면 조회 버튼을 막습니다
+    });
+    $('#best-all').textContent = '1~' + draws[draws.length - 1].round + '회';
+    function open() { if (sheet.showModal) sheet.showModal(); else sheet.setAttribute('open', ''); }
+    function close() { if (sheet.close) sheet.close(); else sheet.removeAttribute('open'); }
+    $('#best-open').disabled = false;
+    $('#best-open').addEventListener('click', open);
+    $('#best-close').addEventListener('click', close);
+    sheet.addEventListener('click', function (e) { if (e.target === sheet) close(); });   // 바깥(어두운 부분)을 누르면 닫힘
+    $('#best-random').addEventListener('click', function () { picker.set(generate(1)[0]); });
+    $('#best-clear').addEventListener('click', function () { picker.set([]); });
+
+    runBtn.addEventListener('click', function () {
+      var nums = picker.get();
+      if (nums.length !== 6) return;
+      var r = findBestMatches(nums, draws, 5, 3);
+      close();
+      result.hidden = false;
+      var s = r.summary;
+      result.innerHTML =
+        '<div class="card-head"><div><h2 class="card-title">가장 많이 맞은 회차</h2><p class="card-sub">맞은 개수가 많은 ' + r.top.length + '개 회차를 최신 회차부터 보여 줘요</p></div></div>' +
+        '<p class="group-label" style="margin-top:0">내가 고른 번호</p>' + balls(nums, { nowrap: true }) +
+        '<p class="hint" style="margin-top:10px">' + draws.length + '회 중 3개 이상 맞은 회차는 <b>' + r.total + '회</b>예요 ' +
+        '(3개 ' + s[3] + ' · 4개 ' + s[4] + ' · 5개 ' + s[5] + ' · 6개 ' + s[6] + ')</p>' +
+        (r.top.length ? '<div class="games" style="margin-top:14px">' + r.top.map(function (h) {
+          return '<div class="game"><div class="game-body">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
+            '<b class="num">' + h.draw.round + '회 <span class="muted" style="font-weight:400">' + fmtDate(h.draw.date) + '</span></b>' +
+            '<span class="badge win">' + h.count + '개 일치' + (h.count === 5 && h.bonus ? '+보너스' : '') + ' · ' + RANK_TEXT[h.rank] + '</span></div>' +
+            balls(h.draw.numbers, { bonus: h.draw.bonus, size: 'sm', nowrap: true, hits: h.matched.concat(h.bonus ? [h.draw.bonus] : []) }) +
+            '<div class="game-meta">맞은 번호: <b>' + h.matched.join(', ') + '</b>' + (h.bonus ? ' (+보너스 ' + h.draw.bonus + ')' : '') + '</div>' +
+            '</div></div>';
+        }).join('') + '</div>'
+          : '<p class="muted" style="margin-top:14px">3개 이상 맞은 회차가 한 번도 없어요.</p>') +
+        '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="best-again">번호 바꿔서 다시 조회</button>' +
+        '<button class="btn btn-secondary" type="button" id="best-save">이 번호 저장</button></div>';
+      $('#best-again').addEventListener('click', open);
+      $('#best-save').addEventListener('click', function () { addToVault([nums], '가장 많이 맞은 회차'); });
+      result.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   /* =====================================================
@@ -569,40 +669,22 @@
     });
 
     // 내 번호 맞춰보기
-    var picked = [], board = $('#pick-board'), html = '';
-    for (var n = 1; n <= 45; n++) html += '<button type="button" data-n="' + n + '" aria-pressed="false" aria-label="' + n + '번">' + ball(n) + '</button>';
-    board.innerHTML = html;
-    function paintPick() {
-      $$('button', board).forEach(function (b) {
-        var on = picked.indexOf(+b.getAttribute('data-n')) >= 0;
-        if (on) b.setAttribute('data-state', 'pick'); else b.removeAttribute('data-state');
-        b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      });
-      board.classList.toggle('board-dim', picked.length === 6);
+    var picker = makePicker($('#pick-board'), function (picked) {
       $('#pick-status').textContent = picked.length === 6 ? '6개를 모두 골랐어요' : picked.length + ' / 6개 선택';
       $('#run-check').disabled = picked.length !== 6;
-    }
-    board.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-n]'); if (!b) return;
-      var x = +b.getAttribute('data-n'), i = picked.indexOf(x);
-      if (i >= 0) picked.splice(i, 1);
-      else if (picked.length < 6) picked.push(x);
-      else { toast('6개까지 고를 수 있어요. 바꿀 번호를 먼저 눌러 빼 주세요'); return; }
-      paintPick();
     });
-    $('#pick-random').addEventListener('click', function () { picked = generate(1)[0]; paintPick(); });
-    $('#pick-clear').addEventListener('click', function () { picked = []; paintPick(); $('#check-result').hidden = true; });
+    $('#pick-random').addEventListener('click', function () { picker.set(generate(1)[0]); });
+    $('#pick-clear').addEventListener('click', function () { picker.set([]); $('#check-result').hidden = true; });
     var vault = loadVault(), sel = $('#pick-vault');
     if (vault.length) {
       sel.innerHTML = '<option value="">보관함에서 불러오기 (' + vault.length + '개)</option>' + vault.map(function (o, i) {
         return '<option value="' + i + '">' + o.nums.map(pad).join(' ') + (o.label ? ' · ' + esc(o.label) : '') + '</option>';
       }).join('');
-      sel.addEventListener('change', function () { if (sel.value !== '') { picked = vault[+sel.value].nums.slice(); paintPick(); } });
+      sel.addEventListener('change', function () { if (sel.value !== '') picker.set(vault[+sel.value].nums); });
     } else sel.hidden = true;
-    paintPick();
 
     $('#run-check').addEventListener('click', function () {
-      var nums = picked.slice().sort(byNum), counts = [0, 0, 0, 0, 0, 0], prize = 0, best = null, hasAll = true;
+      var nums = picker.get(), counts = [0, 0, 0, 0, 0, 0], prize = 0, best = null, hasAll = true;
       draws.forEach(function (d) {
         var r = rankOf(nums, d);
         counts[r]++;
