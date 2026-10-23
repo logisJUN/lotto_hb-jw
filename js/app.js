@@ -192,6 +192,7 @@
           if (u !== t) p.textContent = u;
         });
         if (page === 'index') { paintLastDraw(last); startCountdown(next.at); }
+        if (page === 'stats') initStats(draws);
       })
       .catch(function () {});
   }
@@ -471,6 +472,136 @@
       var nums = row ? Array.prototype.map.call(row.children, function (c) { return parseInt($('p', c).textContent, 10); }) : [];
       if (nums.length === 6) addToVault([nums], '시뮬레이터'); else toast('저장할 번호가 없습니다');
     };
+  }
+
+  /* =====================================================
+     통계분석 (data/lotto.json으로 계산)
+     ===================================================== */
+  var ZONES = [[1, 10, '노랑'], [11, 20, '파랑'], [21, 30, '빨강'], [31, 40, '회색'], [41, 45, '초록']];
+  function findP(t) { return $$('p').filter(function (p) { return p.textContent === t; })[0]; }
+  function pct(n, d, digits) { return (d ? (n / d * 100) : 0).toFixed(digits || 0) + '%'; }
+  function setBar(el, ratio) { if (el) el.style.right = (100 - Math.max(0, Math.min(1, ratio)) * 100).toFixed(1) + '%'; }
+  function oddCount(nums) { return nums.filter(function (n) { return n % 2; }).length; }
+
+  function initStats(draws) {
+    // 시안 값이 들어 있는 자리를 먼저 찾아 둡니다.
+    var el = {
+      hotZone: findP('11~20'), hotRate: findP('출현 빈도 24% 기록'),
+      subtitle: findP('최근 100회 당첨번호 전수 집계'),
+      rankRows: $$('.u182'),
+      oeMode: findP('최빈 패턴 3:3'), oeBar: $('.u203') ? $('.u203').children : [], oePs: $$('p', $('.u208')),
+      sumGold: findP('골든존 131~160'),
+      sumRows: $$('.u218', findP('총합(Sum) 분포 히스토그램').closest('.u202')),
+      consec: ['연속 없음', '1쌍 등장', '2쌍 등장'].map(function (t) { var p = findP(t); return p && $('p', p.parentNode.nextElementSibling); }),
+      digits: $$('.u243 p'), digitText: findP('3끝수 & 7끝수 집중'),
+      zoneRows: $$('.u251 > .u218'),
+      zoneHi: null,
+      ai: $$('p').filter(function (p) { return /^홀짝 \d:\d, 총합/.test(p.textContent); })[0]
+    };
+    // 순위 줄의 볼 색 클래스 (범위별)
+    var ballCls = {};
+    el.rankRows.forEach(function (row) {
+      var b = row.firstElementChild; ballCls[range(parseInt(b.textContent, 10))] = b.className;
+    });
+    // 구간 줄 강조 스타일 (시안에서 둘째 줄이 강조, 첫째 줄이 보통)
+    function zoneParts(row) { return [$('.u219 > div', row), $('.u255 > div', row)]; }
+    if (el.zoneRows.length > 1) el.zoneHi = [zoneParts(el.zoneRows[1]).map(function (d) { return d.className; }),
+      zoneParts(el.zoneRows[0]).map(function (d) { return d.className; })];
+    // 번호별 마지막 출현 회차 (장기 미출현 계산용, 기간과 무관)
+    var lastSeen = {}, latest = draws[draws.length - 1].round;
+    draws.forEach(function (d) { d.numbers.forEach(function (n) { lastSeen[n] = d.round; }); });
+
+    var period = 100, rankMode = 'top';
+
+    function render() {
+      var w = period ? draws.slice(-period) : draws, total = w.length, balls = total * 6;
+      var freq = {}, zone = [0, 0, 0, 0, 0], digit = {}, oe = {}, sumBins = [0, 0, 0], consec = [0, 0, 0];
+      for (var n = 1; n <= 45; n++) freq[n] = 0;
+      w.forEach(function (d) {
+        d.numbers.forEach(function (n) {
+          freq[n]++; digit[n % 10] = (digit[n % 10] || 0) + 1;
+          ZONES.forEach(function (z, i) { if (n >= z[0] && n <= z[1]) zone[i]++; });
+        });
+        var o = oddCount(d.numbers), k = o + ':' + (6 - o); oe[k] = (oe[k] || 0) + 1;
+        var s = sum(d.numbers);
+        if (s >= 100 && s <= 130) sumBins[0]++; else if (s >= 131 && s <= 160) sumBins[1]++; else if (s >= 161 && s <= 190) sumBins[2]++;
+        consec[Math.min(2, consecutivePairs(d.numbers))]++;
+      });
+      var label = period ? '최근 ' + period + '회' : '전체 ' + total.toLocaleString('en-US') + '회';
+      if (el.subtitle) el.subtitle.textContent = label + ' 당첨번호 전수 집계';
+
+      // 과열 구간: 번호 비중이 가장 높은 구간
+      var hot = zone.indexOf(Math.max.apply(null, zone));
+      if (el.hotZone) el.hotZone.textContent = ZONES[hot][0] + '~' + ZONES[hot][1];
+      if (el.hotRate) el.hotRate.textContent = '출현 빈도 ' + pct(zone[hot], balls) + ' 기록';
+
+      // 최다 출현 / 장기 미출현 5선
+      var nums = Object.keys(freq).map(Number), rows;
+      if (rankMode === 'top') {
+        rows = nums.sort(function (a, b) { return freq[b] - freq[a] || a - b; }).slice(0, 5).map(function (n) {
+          return { n: n, text: freq[n] + '회 출현', v: freq[n] };
+        });
+      } else {
+        rows = nums.map(function (n) { return { n: n, gap: latest - (lastSeen[n] || 0) }; })
+          .sort(function (a, b) { return b.gap - a.gap || a.n - b.n; }).slice(0, 5).map(function (o) {
+            return { n: o.n, text: o.gap + '회째 미출현', v: o.gap };
+          });
+      }
+      var max = rows.length ? rows[0].v : 1;
+      el.rankRows.forEach(function (row, i) {
+        var r = rows[i]; if (!r) return;
+        var ps = $$('p', row), b = row.firstElementChild;
+        if (ballCls[range(r.n)]) b.className = ballCls[range(r.n)];
+        ps[0].textContent = pad(r.n); ps[1].textContent = pad(r.n) + '번\u00a0'; ps[2].textContent = r.text;
+        ps[3].textContent = pct(freq[r.n], total, 1);
+        setBar($('.u191 > div', row), max ? r.v / max * 0.9 : 0);
+      });
+
+      // 홀짝 비율 (홀:짝)
+      var oeKeys = ['3:3', '4:2', '2:4'], etc = total;
+      var oeMode = Object.keys(oe).sort(function (a, b) { return oe[b] - oe[a]; })[0] || '3:3';
+      if (el.oeMode) el.oeMode.textContent = '최빈 패턴 ' + oeMode;
+      oeKeys.concat('기타').forEach(function (k, i) {
+        var c = i < 3 ? (oe[k] || 0) : etc;
+        if (i < 3) etc -= c;
+        if (el.oePs[i * 2 + 1]) el.oePs[i * 2 + 1].textContent = pct(c, total);
+        if (el.oeBar[i]) el.oeBar[i].style.width = 'calc(' + pct(c, total, 2) + ' - 2px)';
+      });
+
+      // 총합 분포
+      var gold = sumBins.indexOf(Math.max.apply(null, sumBins));
+      if (el.sumGold) el.sumGold.textContent = '골든존 ' + ['100~130', '131~160', '161~190'][gold];
+      el.sumRows.forEach(function (row, i) {
+        var ps = $$('p', row);
+        ps[ps.length - 1].textContent = pct(sumBins[i], total);
+        setBar($('.u220 > div', row), total ? sumBins[i] / total : 0);
+      });
+
+      // 연속 번호 (2쌍 이상은 "2쌍 등장"에 포함)
+      el.consec.forEach(function (p, i) { if (p) p.textContent = pct(consec[i], total); });
+
+      // 강세 동끝수: 가장 많이 나온 끝수 2개
+      var top2 = Object.keys(digit).sort(function (a, b) { return digit[b] - digit[a] || a - b; }).slice(0, 2);
+      el.digits.forEach(function (p, i) { if (top2[i] != null) p.textContent = top2[i]; });
+      if (el.digitText && top2.length === 2) el.digitText.textContent = top2[0] + '끝수 & ' + top2[1] + '끝수 집중';
+
+      // 구간별 출현 비중
+      el.zoneRows.forEach(function (row, i) {
+        var ps = $$('p', row);
+        ps[ps.length - 1].textContent = pct(zone[i], balls);
+        setBar($('.u220 > div', row), balls ? zone[i] / balls : 0);
+        if (el.zoneHi) zoneParts(row).forEach(function (d, j) { d.className = el.zoneHi[i === hot ? 0 : 1][j]; });
+      });
+
+      if (el.ai) el.ai.textContent = '홀짝 ' + oeMode + ', 총합 ' + ['100~130', '131~160', '161~190'][gold] +
+        ', 최빈 ' + top2.join('/') + '끝수, ' + ZONES[hot][2] + ' 대역 가중치를 탑';
+    }
+
+    groupHooks.period = function (sel) {
+      var m = sel.textContent.match(/최근 (\d+)회/); period = m ? +m[1] : 0; render();
+    };
+    groupHooks.rank = function (sel, els) { rankMode = els.indexOf(sel) === 0 ? 'top' : 'worst'; render(); };
+    render();
   }
 
   /* =====================================================
