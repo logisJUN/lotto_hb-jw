@@ -5,19 +5,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          curl -s https://ipinfo.io/country || true
-          UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
-          for u in \
-            "https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=1100" \
-            "https://dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=1100" \
-            "https://www.dhlottery.co.kr/" \
-            "https://www.dhlottery.co.kr/lt645/selectPstLt645Info.do?srchStrLtEpsd=1100&srchEndLtEpsd=1100" \
-            "https://www.dhlottery.co.kr/gameResult.do?method=byWin&drwNo=1100" \
-            "https://smok95.github.io/lotto/results/1100.json" \
-            "https://smok95.github.io/lotto/results/latest.json" ; do
-            echo "=== $u"
-            curl -sSL -A "$UA" -o /tmp/b -w 'status=%{http_code} final=%{url_effective} type=%{content_type}\n' "$u" || true
-            grep -o '<title>[^<]*' /tmp/b | head -1
-            head -c 600 /tmp/b | tr '\n' ' '; echo
-            grep -oiE '(점검|해외|차단|접근|block|denied)[^<]{0,80}' /tmp/b | head -5
+          B="https://www.dhlottery.co.kr/lt645/selectPstLt645Info.do"
+          curl -sS "$B?srchStrLtEpsd=1100&srchEndLtEpsd=1100" | jq -c .
+          for r in "1&srchEndLtEpsd=1" "1&srchEndLtEpsd=300" "1&srchEndLtEpsd=2000" "1240&srchEndLtEpsd=1300" "1300&srchEndLtEpsd=1300" ; do
+            echo "=== $r"
+            curl -sS -w '\nstatus=%{http_code}\n' "$B?srchStrLtEpsd=$r" > /tmp/b; tail -1 /tmp/b
+            head -n -1 /tmp/b | jq -c '{rc:.resultCode,msg:.resultMessage,n:(.data.list|length),first:.data.list[0].ltEpsd,last:.data.list[-1].ltEpsd,keys:(.data|keys)}' || head -c 300 /tmp/b
           done
+          echo "=== no params"; curl -sS "$B" | head -c 400
