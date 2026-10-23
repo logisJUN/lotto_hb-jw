@@ -56,8 +56,9 @@ function toDraw(d) {
     date: `${d.ltRflYmd.slice(0, 4)}-${d.ltRflYmd.slice(4, 6)}-${d.ltRflYmd.slice(6, 8)}`,
     numbers: [d.tm1WnNo, d.tm2WnNo, d.tm3WnNo, d.tm4WnNo, d.tm5WnNo, d.tm6WnNo],
     bonus: d.bnsWnNo,
-    firstPrize: d.rnk1WnAmt,
-    firstWinners: d.rnk1WnNope,
+    // 1~5등 1인당 당첨금과 당첨자 수
+    prizes: [1, 2, 3, 4, 5].map((r) => d[`rnk${r}WnAmt`]),
+    winners: [1, 2, 3, 4, 5].map((r) => d[`rnk${r}WnNope`]),
     totalSales: d.wholEpsdSumNtslAmt,
   };
   const balls = [...draw.numbers, draw.bonus];
@@ -72,7 +73,9 @@ function serialize(draws) {
   return '[\n' + draws.map((d) => '  ' + JSON.stringify(d)).join(',\n') + '\n]\n';
 }
 
-const draws = await loadDraws();
+let draws = await loadDraws();
+// 예전 형식(1등 정보만 있는 파일)이면 처음부터 다시 받습니다.
+if (draws.length && !draws[0].prizes) draws = [];
 const start = draws.length ? draws[draws.length - 1].round + 1 : 1;
 const added = (await fetchRange(start, start + 10000)).map(toDraw).sort((a, b) => a.round - b.round);
 
