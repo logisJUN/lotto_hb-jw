@@ -281,7 +281,8 @@
   /* =====================================================
      번호 생성 엔진 (홈 빠른 뽑기 + 번호 생성 화면)
      ===================================================== */
-  // opt: fixed[], excluded[], odd[] (허용하는 홀수 개수), sumMin, sumMax, noRun3, noSameEnd3
+  // opt: fixed[], excluded[], odd[] (허용하는 홀수 개수), sumMin, sumMax,
+  //      runMin (이 개수 이상 연속이면 뺌), endMin (같은 끝자리가 이 개수 이상이면 뺌)
   function generate(count, opt) {
     opt = opt || {};
     var fixed = opt.fixed || [], excluded = opt.excluded || [];
@@ -298,8 +299,8 @@
       if (opt.odd && opt.odd.length && opt.odd.indexOf(oddCount(s)) < 0) continue;
       if (opt.sumMin != null && sum(s) < opt.sumMin) continue;
       if (opt.sumMax != null && sum(s) > opt.sumMax) continue;
-      if (opt.noRun3 && longestRun(s) >= 3) continue;
-      if (opt.noSameEnd3 && sameEndMax(s) >= 3) continue;
+      if (opt.runMin && longestRun(s) >= opt.runMin) continue;
+      if (opt.endMin && sameEndMax(s) >= opt.endMin) continue;
       seen[key] = 1; out.push(s);
     }
     return out;
@@ -574,6 +575,50 @@
     });
     function on(id) { return $(id).getAttribute('aria-checked') === 'true'; }
 
+    /* 연속 번호 / 같은 끝자리 기준 개수
+       - 연속: 2~6개. 한 게임은 번호 6개라 6개를 넘는 연속은 있을 수 없고, 1개는 "연속"이 아니에요.
+       - 같은 끝자리: 2~5개. 끝자리가 같은 번호는 많아야 5개(1·11·21·31·41)라 6개는 있을 수 없어요. */
+    var COUNT_RULE = {
+      run: { min: 2, max: 6, low: '연속은 2개부터 셀 수 있어요', high: '한 게임은 번호가 6개라 6개를 넘게 연속될 수 없어요',
+        title: function (n) { return n + '개 이상 연속 번호 빼기'; },
+        eg: function (n) { var a = []; for (var i = 0; i < n; i++) a.push(12 + i); return '예: ' + a.join('·') + ' 같은 조합 제외'; } },
+      end: { min: 2, max: 5, low: '같은 끝자리는 2개부터 셀 수 있어요', high: '끝자리가 같은 번호는 많아야 5개(1·11·21·31·41)라 5개를 넘을 수 없어요',
+        title: function (n) { return '같은 끝자리 ' + n + '개 이상 빼기'; },
+        eg: function (n) { return '예: ' + [3, 13, 23, 33, 43].slice(0, n).join('·') + ' 같은 조합 제외'; } }
+    };
+    // 입력값을 검사해 {n} 또는 {error}를 돌려주고, 화면(제목·예시·오류 문구·버튼)을 맞춥니다.
+    function checkCount(key) {
+      var rule = COUNT_RULE[key], input = $('#' + key + '-n'), raw = String(input.value).trim(), n = Number(raw), err = '';
+      if (!/^\d+$/.test(raw)) err = '숫자(정수)로 입력해 주세요';
+      else if (n < rule.min) err = rule.low;
+      else if (n > rule.max) err = rule.high;
+      var box = input.parentNode, msg = $('#' + key + '-err');
+      box.classList.toggle('invalid', !!err);
+      input.setAttribute('aria-invalid', err ? 'true' : 'false');
+      msg.hidden = !err; msg.textContent = err ? err + ' (' + rule.min + '~' + rule.max + ')' : '';
+      $('[data-step="-1"]', box).disabled = !err && n <= rule.min;
+      $('[data-step="1"]', box).disabled = !err && n >= rule.max;
+      if (!err) {
+        $('#' + key + '-title').textContent = rule.title(n);
+        $('#' + key + '-eg').textContent = rule.eg(n);
+        $('#sw-' + key).setAttribute('aria-label', rule.title(n));
+      }
+      return err ? { error: err } : { n: n };
+    }
+    Object.keys(COUNT_RULE).forEach(function (key) {
+      var input = $('#' + key + '-n'), rule = COUNT_RULE[key];
+      $$('.stepper[data-for="' + key + '"] [data-step]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var cur = parseInt(input.value, 10);
+          if (isNaN(cur)) cur = 3;
+          input.value = Math.max(rule.min, Math.min(rule.max, cur + +b.getAttribute('data-step')));
+          checkCount(key);
+        });
+      });
+      input.addEventListener('input', function () { checkCount(key); });
+      checkCount(key);
+    });
+
     var lastDraw = null;
     loadDraws().then(function (draws) {
       lastDraw = draws[draws.length - 1];
@@ -586,12 +631,24 @@
       if (on('#sw-last') && lastDraw) lastDraw.numbers.forEach(function (n) { if (excluded.indexOf(n) < 0 && state[n] !== 'fix') excluded.push(n); });
       var opt = {
         fixed: list('fix'), excluded: excluded,
-        odd: $$('#odd .chip[aria-pressed="true"]').map(function (c) { return +c.getAttribute('data-odd'); }),
-        noRun3: on('#sw-run'), noSameEnd3: on('#sw-end')
+        odd: $$('#odd .chip[aria-pressed="true"]').map(function (c) { return +c.getAttribute('data-odd'); })
       };
+      // 켜 둔 조건의 숫자를 검사합니다. 잘못되면 생성하지 않고 그 칸으로 안내합니다.
+      var fixed = list('fix');
+      var checks = [['run', '#sw-run', 'runMin', longestRun, '연속 번호'], ['end', '#sw-end', 'endMin', sameEndMax, '같은 끝자리']];
+      for (var k = 0; k < checks.length; k++) {
+        var c = checks[k];
+        if (!on(c[1])) continue;
+        var r = checkCount(c[0]);
+        if (r.error) { toast(r.error); $('#' + c[0] + '-n').focus(); return; }
+        // 고정수만으로 이미 기준에 걸리면 어떤 조합도 만들 수 없어요
+        if (fixed.length && c[3](fixed) >= r.n) { toast('고정수(' + fixed.join(', ') + ')에 이미 ' + c[4] + '가 ' + r.n + '개 이상이라 이 조건으로는 만들 수 없어요'); return; }
+        opt[c[2]] = r.n;
+      }
       if (on('#sw-sum')) {
         var a = parseInt($('#sum-min').value, 10), b = parseInt($('#sum-max').value, 10);
         if (isNaN(a) || isNaN(b) || a > b) { toast('합계 범위를 확인해 주세요 (최소 ≤ 최대)'); return; }
+        if (a < 21 || b > 255) { toast('합계는 21(1~6)부터 255(40~45)까지만 나올 수 있어요'); return; }
         opt.sumMin = a; opt.sumMax = b;
       }
       result = generate(games, opt);

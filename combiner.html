@@ -68,12 +68,34 @@
             <input class="input num" id="sum-max" type="number" inputmode="numeric" min="21" max="255" value="175" aria-label="합계 최대">
           </div>
           <div class="switch-row">
-            <div><b>3개 이상 연속 번호 빼기</b><small>예: 12·13·14 같은 조합 제외</small></div>
-            <button type="button" class="switch" id="sw-run" role="switch" aria-checked="false" aria-label="3개 이상 연속 번호 빼기"></button>
+            <div><b id="run-title">3개 이상 연속 번호 빼기</b><small id="run-eg">예: 12·13·14 같은 조합 제외</small></div>
+            <button type="button" class="switch" id="sw-run" role="switch" aria-checked="false" aria-label="연속 번호 빼기" data-reveal="#run-opt"></button>
+          </div>
+          <div class="stepper-row" id="run-opt" hidden>
+            <span>연속</span>
+            <div class="stepper" data-for="run">
+              <button type="button" data-step="-1" aria-label="하나 줄이기">−</button>
+              <input class="num" id="run-n" type="number" inputmode="numeric" min="2" max="6" step="1" value="3" aria-label="연속 번호 빼기 기준 개수 (2~6)" aria-describedby="run-err">
+              <button type="button" data-step="1" aria-label="하나 늘리기">+</button>
+            </div>
+            <span>개 이상이면 빼기</span>
+            <p class="hint" style="width:100%;margin:0">2~6개로 정할 수 있어요. 번호가 6개라 6개를 넘을 수 없어요.</p>
+            <p class="field-error" id="run-err" role="alert" hidden></p>
           </div>
           <div class="switch-row">
-            <div><b>같은 끝자리 3개 이상 빼기</b><small>예: 3·13·23 같은 조합 제외</small></div>
-            <button type="button" class="switch" id="sw-end" role="switch" aria-checked="false" aria-label="같은 끝자리 3개 이상 빼기"></button>
+            <div><b id="end-title">같은 끝자리 3개 이상 빼기</b><small id="end-eg">예: 3·13·23 같은 조합 제외</small></div>
+            <button type="button" class="switch" id="sw-end" role="switch" aria-checked="false" aria-label="같은 끝자리 빼기" data-reveal="#end-opt"></button>
+          </div>
+          <div class="stepper-row" id="end-opt" hidden>
+            <span>같은 끝자리</span>
+            <div class="stepper" data-for="end">
+              <button type="button" data-step="-1" aria-label="하나 줄이기">−</button>
+              <input class="num" id="end-n" type="number" inputmode="numeric" min="2" max="5" step="1" value="3" aria-label="같은 끝자리 빼기 기준 개수 (2~5)" aria-describedby="end-err">
+              <button type="button" data-step="1" aria-label="하나 늘리기">+</button>
+            </div>
+            <span>개 이상이면 빼기</span>
+            <p class="hint" style="width:100%;margin:0">2~5개로 정할 수 있어요. 끝자리가 같은 번호는 많아야 5개예요.</p>
+            <p class="field-error" id="end-err" role="alert" hidden></p>
           </div>
           <div class="switch-row">
             <div><b>지난 회차 번호 빼기</b><small id="last-nums">지난 회차 당첨번호를 빼고 뽑아요</small></div>
