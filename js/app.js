@@ -128,6 +128,74 @@
   }
   window.LottoLab.ballsHTML = ballsHTML;
 
+  /* ---------- 공통: 최신 회차 (data/lotto.json, 매주 자동 갱신) ---------- */
+  var DAY = 864e5;
+  var latestRound = 1114;   // 데이터를 못 읽으면 시안 값을 그대로 둡니다
+  // 추첨은 매주 토요일. 마지막 추첨일 다음 토요일부터 오늘(한국 시간) 이후 첫 추첨을 찾습니다.
+  function nextDraw(last) {
+    var kst = new Date(Date.now() + 9 * 3600e3);
+    var today = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
+    var d = Date.parse(last.date) + 7 * DAY, round = last.round + 1;
+    while (d < today) { d += 7 * DAY; round++; }
+    // 추첨 시각: 토요일 20:35(KST) = 11:35(UTC)
+    return { round: round, days: Math.round((d - today) / DAY), at: d + (11 * 60 + 35) * 6e4 };
+  }
+  // 홈의 "D-2 18:32:44" 카운트다운을 다음 추첨 시각까지 1초마다 갱신합니다.
+  function startCountdown(at) {
+    var el = $$('p').filter(function (p) { return /^D-\d+ \d\d:\d\d:\d\d$/.test(p.textContent); })[0];
+    if (!el) return;
+    function tick() {
+      var s = Math.floor((at - Date.now()) / 1000);
+      if (s < 0) { el.textContent = '추첨 결과 집계 중'; return; }
+      var d = Math.floor(s / 86400);
+      el.textContent = 'D-' + d + ' ' + pad(Math.floor(s / 3600) % 24) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+      setTimeout(tick, 1000 - Date.now() % 1000);
+    }
+    tick();
+  }
+  // 시안에 적힌 회차(1115 = 다음 회차, 1114 = 지난 회차)를 실제 회차로 바꿉니다.
+  function roundText(t, from, to) {
+    return t.replace(new RegExp('1,?' + String(from).slice(1) + '(?=회)', 'g'), function (m) {
+      return m.indexOf(',') >= 0 ? to.toLocaleString('en-US') : String(to);
+    });
+  }
+  function paintLastDraw(last) {
+    var title = $$('p').filter(function (p) { return p.textContent === '지난 회차 당첨 결과'; })[0];
+    var head = title && title.closest('.u23'), row = head && head.nextElementSibling;
+    if (!row) return;
+    var balls = $$('.u67', row).map(function (c) { return c.firstElementChild; });
+    // 범위별 볼 색 클래스 (이 줄과 추천 번호 줄에서 수집)
+    var tpl = {};
+    balls.concat($$('[data-brow] > div')).forEach(function (b) {
+      var p = $('p', b), k = p && range(parseInt(p.textContent, 10));
+      if (k && !tpl[k]) tpl[k] = b.className;
+    });
+    last.numbers.concat(last.bonus).forEach(function (n, i) {
+      var b = balls[i]; if (!b) return;
+      if (tpl[range(n)]) b.className = tpl[range(n)];
+      $('p', b).textContent = pad(n);
+    });
+  }
+  function initLatest() {
+    if (!window.fetch) return;
+    fetch('data/lotto.json', { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (draws) {
+        var last = draws[draws.length - 1], next = nextDraw(last);
+        latestRound = last.round;
+        var hd = $('.hd-round');
+        if (hd) hd.lastChild.nodeValue = '제 ' + next.round + '회차 ' + (next.days ? 'D-' + next.days : 'D-DAY');
+        $$('p').forEach(function (p) {
+          var t = p.textContent;
+          if (!/회/.test(t) || p.children.length) return;
+          var u = roundText(roundText(t, 1115, next.round), 1114, last.round);
+          if (u !== t) p.textContent = u;
+        });
+        if (page === 'index') { paintLastDraw(last); startCountdown(next.at); }
+      })
+      .catch(function () {});
+  }
+
   /* =====================================================
      홈 (index)
      ===================================================== */
@@ -391,7 +459,7 @@
     actions.rerun = function (el) {
       var p = $('p', el); if (!p) return;
       var old = p.textContent; p.textContent = '계산 중…'; el.style.pointerEvents = 'none';
-      setTimeout(function () { p.textContent = old; el.style.pointerEvents = ''; toast('1,114회차 시뮬레이션을 다시 실행했습니다'); }, 900);
+      setTimeout(function () { p.textContent = old; el.style.pointerEvents = ''; toast(latestRound.toLocaleString('en-US') + '회차 시뮬레이션을 다시 실행했습니다'); }, 900);
     };
     actions.share = function () {
       var url = location.href;
@@ -430,6 +498,7 @@
   /* ---------- 시작 ---------- */
   initActions();
   initGroups();
+  initLatest();
   if (page === 'index') initHome();
   if (page === 'combiner') initCombiner();
   if (page === 'simulator') initSimulator();
