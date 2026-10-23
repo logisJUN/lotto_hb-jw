@@ -3,811 +3,112 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#051424">
-<meta name="description" content="로또랩 - AI 번호 추천, 통계 분석, 번호 조합기, 역대 당첨 시뮬레이터">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234f46e5'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
-<title>로또랩 - 스마트 번호 조합기</title>
+<meta name="theme-color" content="#f4f6fb">
+<meta name="description" content="고정수·제외수와 조건으로 로또 번호 조합 만들기">
+<title>번호 생성 · 로또랩</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect width='34' height='34' rx='10' fill='%234f46e5'/%3E%3Ccircle cx='12' cy='13' r='5' fill='%23fbbf24'/%3E%3Ccircle cx='22' cy='13' r='5' fill='%2360a5fa'/%3E%3Ccircle cx='17' cy='22' r='5' fill='%23f87171'/%3E%3C/svg%3E">
+<script>
+  // 화면이 그려지기 전에 테마를 정해 깜빡임을 막습니다.
+  (function () {
+    var t; try { t = localStorage.getItem('lottolab.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body data-page="combiner">
 <div class="app">
-  <header class="app-header">
-    <div class="hd-row">
-      <a class="hd-brand" href="index.html">
-        <span class="hd-logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#03b5d3"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><circle cx="16" cy="17" r="8" fill="#fff" fill-opacity=".18"/><path d="M13 9h6v3.2l3.4 6.3c.5 1-.2 2.2-1.3 2.2H10.9c-1.1 0-1.8-1.2-1.3-2.2L13 12.2V9z" fill="#fff"/><circle cx="14.2" cy="18.2" r="1.3" fill="#4f46e5"/><circle cx="18.2" cy="16.6" r="1.1" fill="#03b5d3"/></svg></span>
-        <span class="hd-text"><span class="hd-name">로또랩</span><span class="hd-round"><i></i>제 1115회차 D-2</span></span>
-      </a>
-      <div class="hd-actions">
-        <button class="hd-bell" type="button" aria-label="알림 목록"><svg viewBox="0 0 24 24" width="14.667" height="18.333" fill="currentColor" aria-hidden="true"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg><i class="hd-dot"></i></button>
-        <span class="hd-avatar"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
-      </div>
+  <header class="appbar" id="top"></header>
+  <main>
+    <div class="page-head">
+      <h1>번호 생성</h1>
+      <p>꼭 넣을 번호와 뺄 번호, 원하는 조건을 정하면 그에 맞는 조합을 뽑아 드려요.</p>
     </div>
-  </header>
-  <main class="page">
-    <div class="u1">
-      <div class="u357">
-        <div class="u3">
-          <div class="u358">
-            <div class="u218">
-              <div class="u359">
-                <div class="u55"></div>
-                <div class="u360">
-                  <p class="u14">ALGORITHMIC V3.4</p>
-                </div>
-              </div>
-              <div class="u12">
-                <div class="u50">
-                  <p class="u14">제 1115회차 분석엔진</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="u15">
-            <div class="u361">
-              <p class="u362">맞춤형 필터 조합기</p>
-            </div>
-          </div>
-          <div class="u363">
-            <div class="u364">
-              <div class="u365">
-                <p class="u366 txt-flow">원하는 조건과 제외수를 설정하여 수학적으로 검증된 최적 조합을 추출합니다.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="u368">
-          <div class="u369">
-            <div class="u48"></div>
-            <div class="u23">
-              <div class="u24">
-                <div class="u247">
-                  <svg class="u11" viewBox="0 0 24 24" fill="#4cd7f6" aria-hidden="true"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg>
-                </div>
-                <div class="u303">
-                  <p class="u17">번호 풀 지정</p>
-                </div>
-              </div>
-              <div class="u121" data-act="reset">
-                <div class="u370">
-                  <svg class="u11" viewBox="0 0 24 24" fill="#c7c4d8" aria-hidden="true"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-                </div>
-                <div class="u67">
-                  <div class="u371">
-                    <p class="u14">초기화</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="u372">
-              <div class="u373" data-grp="mode" data-sel="1">
-                <div class="u374">
-                  <svg class="u11" viewBox="0 0 24 24" fill="#c3c0ff" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                </div>
-                <div class="u12">
-                  <div class="u15">
-                    <div class="u375">
-                      <p class="u20">고정수 지정</p>
-                    </div>
-                  </div>
-                  <div class="u376">
-                    <div class="u28">
-                      <p class="u14">2 / 3개 선택됨</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="u377" data-grp="mode">
-                <div class="u247">
-                  <svg class="u11" viewBox="0 0 24 24" fill="#ffb4ab" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg>
-                </div>
-                <div class="u12">
-                  <div class="u15">
-                    <div class="u378">
-                      <p class="u20">제외수 설정</p>
-                    </div>
-                  </div>
-                  <div class="u376">
-                    <div class="u50">
-                      <p class="u14">3 / 10개 선택됨</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="u379">
-              <div class="u24">
-                <div class="u380"></div>
-                <div class="u381">
-                  <div class="u50">
-                    <p class="u239">고정수 (07,</p>
-                    <p class="u14">23)</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u24">
-                <div class="u382"></div>
-                <div class="u383">
-                  <div class="u50">
-                    <p class="u239">제외수 (04, 18,</p>
-                    <p class="u14">30)</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u24">
-                <div class="u384"></div>
-                <div class="u385">
-                  <div class="u50">
-                    <p class="u239">일반 랜덤풀 (40</p>
-                    <p class="u14">개)</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="u368">
-          <div class="u386">
-            <div class="u48"></div>
-            <div class="u387" data-grid="1">
-              <div class="u388">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">01</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u390">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">02</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u391">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">03</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u392">
-                <div class="u67">
-                  <div class="u393">
-                    <p class="u394">04</p>
-                  </div>
-                </div>
-                <div class="u395">
-                  <div class="u154">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                  </div>
-                </div>
-              </div>
-              <div class="u396">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">05</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u397">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">06</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u398">
-                <div class="u399">
-                  <div class="u185">
-                    <p class="u20">07</p>
-                  </div>
-                </div>
-                <div class="u400">
-                  <div class="u401"></div>
-                  <div class="u402">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                  </div>
-                </div>
-                <div class="u403"></div>
-              </div>
-              <div class="u404">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">08</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u405">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">09</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u406">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">10</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u407">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">11</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u408">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">12</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u409">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">13</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u410">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">14</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u411">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">15</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u412">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">16</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u413">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">17</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u414">
-                <div class="u67">
-                  <div class="u393">
-                    <p class="u394">18</p>
-                  </div>
-                </div>
-                <div class="u395">
-                  <div class="u154">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                  </div>
-                </div>
-              </div>
-              <div class="u415">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">19</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u416">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">20</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u417">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">21</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u418">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">22</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u419">
-                <div class="u399">
-                  <div class="u185">
-                    <p class="u20">23</p>
-                  </div>
-                </div>
-                <div class="u400">
-                  <div class="u401"></div>
-                  <div class="u402">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                  </div>
-                </div>
-                <div class="u403"></div>
-              </div>
-              <div class="u420">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">24</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u421">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">25</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u422">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">26</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u423">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">27</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u424">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">28</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u425">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">29</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u426">
-                <div class="u67">
-                  <div class="u393">
-                    <p class="u394">30</p>
-                  </div>
-                </div>
-                <div class="u395">
-                  <div class="u154">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                  </div>
-                </div>
-              </div>
-              <div class="u427">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">31</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u428">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">32</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u429">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">33</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u430">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">34</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u431">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">35</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u432">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">36</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u433">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">37</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u434">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">38</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u435">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">39</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u436">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">40</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u437">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">41</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u438">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">42</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u439">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">43</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u440">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">44</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u441">
-                <div class="u389">
-                  <div class="u185">
-                    <p class="u20">45</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="u368">
-          <div class="u442">
-            <div class="u443">
-              <div class="u99">
-                <div class="u344"></div>
-                <div class="u12">
-                  <div class="u303">
-                    <p class="u17">수학적 확률을 쓴다면?</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u444">
-                <div class="u445">
-                  <p class="u14">정밀 검증 모드</p>
-                </div>
-              </div>
-            </div>
-            <div class="u446">
-              <div class="u23">
-                <div class="u24">
-                  <div class="u49">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#4cd7f6" aria-hidden="true"><path d="M18 4H6v2l6.5 6L6 18v2h12v-3h-7l5-5-5-5h7z"/></svg>
-                  </div>
-                  <div class="u447">
-                    <div class="u448">
-                      <p class="u449 txt-flow">총합 구간</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="u450">
-                  <div class="u451">
-                    <div class="u452">
-                      <p class="u19 txt-flow">120 ~ 165</p>
-                    </div>
-                  </div>
-                  <div class="u453">
-                    <div class="u50">
-                      <p class="u239 txt-flow">(적중밀도 79.2%)</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="u454">
-                <div class="u455">
-                  <div class="u456"></div>
-                  <div class="u457">
-                    <div class="u458"></div>
-                  </div>
-                  <div class="u459">
-                    <div class="u458"></div>
-                  </div>
-                </div>
-                <div class="u23">
-                  <div class="u12">
-                    <div class="u50">
-                      <p class="u14">최소 60</p>
-                    </div>
-                  </div>
-                  <div class="u12">
-                    <div class="u250">
-                      <p class="u14">골든존 130~150</p>
-                    </div>
-                  </div>
-                  <div class="u12">
-                    <div class="u50">
-                      <p class="u14">최대 210</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="u460">
-              <div class="u23">
-                <div class="u24">
-                  <div class="u25">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#4cd7f6" aria-hidden="true"><path d="M9.01 14H2v2h7.01v3L13 15l-3.99-4v3zm5.98-1v-3H22V8h-7.01V5L11 9l3.99 4z"/></svg>
-                  </div>
-                  <div class="u12">
-                    <div class="u448">
-                      <p class="u35">홀짝 비율 허용</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="u12">
-                  <div class="u50">
-                    <p class="u14">다중 선택</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u461">
-                <div class="u462" data-grp="oddeven" data-multi="1">
-                  <div class="u58">
-                    <p class="u14">5 : 1</p>
-                  </div>
-                </div>
-                <div class="u463" data-grp="oddeven" data-sel="1" data-multi="1">
-                  <div class="u464">
-                    <p class="u20">4 : 2</p>
-                  </div>
-                </div>
-                <div class="u465" data-grp="oddeven" data-sel="1" data-multi="1">
-                  <div class="u464">
-                    <p class="u20">3 : 3</p>
-                  </div>
-                </div>
-                <div class="u465" data-grp="oddeven" data-sel="1" data-multi="1">
-                  <div class="u464">
-                    <p class="u20">2 : 4</p>
-                  </div>
-                </div>
-                <div class="u466" data-grp="oddeven" data-multi="1">
-                  <div class="u58">
-                    <p class="u14">1 : 5</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="u460">
-              <div class="u23">
-                <div class="u24">
-                  <div class="u467">
-                    <svg class="u11" viewBox="0 0 24 24" fill="#c3c0ff" aria-hidden="true"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
-                  </div>
-                  <div class="u468">
-                    <div class="u448">
-                      <p class="u449 txt-flow">고저 비율 (1~22 vs 23~45)</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="u469">
-                  <div class="u28">
-                    <p class="u239 txt-flow">3:3 균형형 (권장)</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u470">
-                <div class="u471" data-grp="hilo">
-                  <div class="u58">
-                    <p class="u239">저번호 우세</p>
-                    <p class="u14">(4:2)</p>
-                  </div>
-                </div>
-                <div class="u472" data-grp="hilo" data-sel="1">
-                  <div class="u356">
-                    <p class="u19">황금 균형</p>
-                    <p class="u20">(3:3)</p>
-                  </div>
-                </div>
-                <div class="u471" data-grp="hilo">
-                  <div class="u58">
-                    <p class="u239">고번호 우세</p>
-                    <p class="u14">(2:4)</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="u51">
-              <div class="u338">
-                <div class="u12">
-                  <div class="u8">
-                    <div class="u12">
-                      <div class="u123">
-                        <p class="u35">연속 번호 제한</p>
-                      </div>
-                    </div>
-                    <div class="u473">
-                      <div class="u28">
-                        <p class="u14">패턴 필터</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="u76">
-                    <div class="u15">
-                      <div class="u52">
-                        <p class="u239 txt-flow">3연번 이상 비정상 조합 배제 (최대 1쌍 허용)</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="u288" data-switch="1">
-                  <div class="u474"></div>
-                  <div class="u475"></div>
-                </div>
-              </div>
-              <div class="u338">
-                <div class="u12">
-                  <div class="u8">
-                    <div class="u12">
-                      <div class="u123">
-                        <p class="u35">산술적 복잡도 (AC값)</p>
-                      </div>
-                    </div>
-                    <div class="u476">
-                      <div class="u477">
-                        <p class="u14">통계 필터</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="u76">
-                    <div class="u15">
-                      <div class="u52">
-                        <p class="u239 txt-flow">산술적 복잡도 AC 7 이상으로 고밀도 당첨 보장</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="u288" data-switch="1">
-                  <div class="u474"></div>
-                  <div class="u475"></div>
-                </div>
-              </div>
-              <div class="u338">
-                <div class="u12">
-                  <div class="u8">
-                    <div class="u12">
-                      <div class="u123">
-                        <p class="u35">동일 끝수 제한</p>
-                      </div>
-                    </div>
-                    <div class="u473">
-                      <div class="u50">
-                        <p class="u14">끝수 분산</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="u76">
-                    <div class="u15">
-                      <div class="u52">
-                        <p class="u14">끝자리가 같은 번호 최대 2개까지만 허용</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="u288" data-switch="1">
-                  <div class="u474"></div>
-                  <div class="u475"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="u368">
-          <div class="u478">
-            <div class="u23">
-              <div class="u24">
-                <div class="u25">
-                  <svg class="u11" viewBox="0 0 24 24" fill="#c3c0ff" aria-hidden="true"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg>
-                </div>
-                <div class="u448">
-                  <p class="u35">생성 게임 수 선택</p>
-                </div>
-              </div>
-              <div class="u12">
-                <div class="u50">
-                  <p class="u14">1회 최대 10게임</p>
-                </div>
-              </div>
-            </div>
-            <div class="u470">
-              <div class="u479" data-grp="games">
-                <div class="u158">
-                  <p class="u20">1게임</p>
-                </div>
-              </div>
-              <div class="u480" data-grp="games" data-sel="1">
-                <div class="u481"></div>
-                <div class="u356">
-                  <p class="u20">5게임 (1장)</p>
-                </div>
-                <div class="u482">
-                  <div class="u483">
-                    <p class="u14">인기</p>
-                  </div>
-                </div>
-              </div>
-              <div class="u484" data-grp="games">
-                <div class="u158">
-                  <p class="u20">10게임</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="u485">
-          <div class="u486" data-act="generate">
-            <div class="u487">
-              <svg class="u11" viewBox="0 0 24 24" fill="#dad7ff" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg>
-            </div>
-            <div class="u67">
-              <div class="u488">
-                <p class="u17">조건 만족 번호 조합 생성 (5게임)</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="u489"></div>
+
+    <section class="card" aria-labelledby="board-title">
+      <div class="card-head">
+        <h2 class="card-title" id="board-title">1. 번호 고르기</h2>
+        <button class="btn btn-ghost btn-sm" type="button" id="reset">초기화</button>
       </div>
-      <p class="notice" role="note"><strong>참고</strong> · 로또는 매 회차 독립적으로 추첨되므로, 과거 통계나 조합 방식으로 당첨 확률을 높일 수는 없습니다. 화면의 분석과 추천은 재미로 참고해 주세요.</p>
+      <div class="seg" id="mode" role="group" aria-label="고르는 방식">
+        <button type="button" data-mode="fix" aria-pressed="true">꼭 넣을 번호 (고정수)</button>
+        <button type="button" data-mode="exc" aria-pressed="false">뺄 번호 (제외수)</button>
+      </div>
+      <p class="muted" style="margin:12px 2px" id="pick-count" aria-live="polite"></p>
+      <div class="board" id="board"></div>
+      <div class="legend" aria-hidden="true">
+        <span><i style="background:var(--primary)"></i>고정수</span>
+        <span><i style="background:var(--danger)"></i>제외수 (흐리게 표시)</span>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="cond-title">
+      <details class="fold" open>
+        <summary><h2 class="card-title" id="cond-title">2. 조건 (선택)</h2><svg class="chev" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+        <p class="group-label">홀수:짝수 비율 <span class="muted">(아무것도 고르지 않으면 제한 없음)</span></p>
+        <div class="chips" id="odd" role="group" aria-label="홀짝 비율">
+          <button type="button" class="chip" data-odd="2" aria-pressed="false">2:4</button>
+          <button type="button" class="chip" data-odd="3" aria-pressed="false">3:3</button>
+          <button type="button" class="chip" data-odd="4" aria-pressed="false">4:2</button>
+          <button type="button" class="chip" data-odd="1" aria-pressed="false">1:5</button>
+          <button type="button" class="chip" data-odd="5" aria-pressed="false">5:1</button>
+        </div>
+        <div style="margin-top:8px">
+          <div class="switch-row">
+            <div><b>번호 합계 범위</b><small>6개 번호를 더한 값을 정해요</small></div>
+            <button type="button" class="switch" id="sw-sum" role="switch" aria-checked="false" aria-label="번호 합계 범위" data-reveal="#sum-range"></button>
+          </div>
+          <div class="range-row" id="sum-range" hidden style="padding-bottom:12px">
+            <input class="input num" id="sum-min" type="number" inputmode="numeric" min="21" max="255" value="100" aria-label="합계 최소">
+            <span class="muted">~</span>
+            <input class="input num" id="sum-max" type="number" inputmode="numeric" min="21" max="255" value="175" aria-label="합계 최대">
+          </div>
+          <div class="switch-row">
+            <div><b>3개 이상 연속 번호 빼기</b><small>예: 12·13·14 같은 조합 제외</small></div>
+            <button type="button" class="switch" id="sw-run" role="switch" aria-checked="false" aria-label="3개 이상 연속 번호 빼기"></button>
+          </div>
+          <div class="switch-row">
+            <div><b>같은 끝자리 3개 이상 빼기</b><small>예: 3·13·23 같은 조합 제외</small></div>
+            <button type="button" class="switch" id="sw-end" role="switch" aria-checked="false" aria-label="같은 끝자리 3개 이상 빼기"></button>
+          </div>
+          <div class="switch-row">
+            <div><b>지난 회차 번호 빼기</b><small id="last-nums">지난 회차 당첨번호를 빼고 뽑아요</small></div>
+            <button type="button" class="switch" id="sw-last" role="switch" aria-checked="false" aria-label="지난 회차 번호 빼기"></button>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:6px">조건은 조합의 모양만 정해요. 어떤 조합을 고르든 당첨 확률은 같아요.</p>
+      </details>
+    </section>
+
+    <section class="card" aria-labelledby="games-title">
+      <h2 class="card-title" id="games-title" style="margin-bottom:12px">3. 게임 수</h2>
+      <div class="seg" id="games" role="group" aria-label="게임 수">
+        <button type="button" data-g="1" aria-pressed="false">1게임</button>
+        <button type="button" data-g="5" aria-pressed="true">5게임</button>
+        <button type="button" data-g="10" aria-pressed="false">10게임</button>
+      </div>
+    </section>
+
+    <div class="sticky-cta">
+      <button class="btn btn-primary btn-block" type="button" id="gen-btn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span id="gen-label">5게임 생성하기</span></button>
     </div>
+
+    <section class="card" id="result" hidden aria-labelledby="result-title" style="scroll-margin-top:72px">
+      <div class="card-head"><h2 class="card-title" id="result-title">생성 결과</h2></div>
+      <div class="games" id="result-games" aria-live="polite"></div>
+      <div class="btn-row" id="result-actions" style="margin-top:14px">
+        <button class="btn btn-secondary" type="button" id="copy-all">모두 복사</button>
+        <button class="btn btn-primary" type="button" id="save-all">모두 저장</button>
+      </div>
+    </section>
+
+    <p class="notice"><b>참고</b> · 로또는 매 회차 독립적으로 추첨돼요. 과거 통계나 조합 조건으로 당첨 확률을 높일 수는 없고, 어떤 조합이든 1등 확률은 8,145,060분의 1로 같아요.</p>
   </main>
-  <nav class="app-nav" aria-label="하단 탭">
-    <div class="nav-row">
-      <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" width="20.167" height="20.167" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span>홈/추천</span></a>
-      <a class="nav-item" href="stats.html"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg><span>통계분석</span></a>
-      <a class="nav-item active" href="combiner.html" aria-current="page"><svg viewBox="0 0 24 24" width="16.5" height="16.5" fill="currentColor" aria-hidden="true"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg><span>번호조합</span></a>
-      <a class="nav-item" href="simulator.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19.8 18.4L14 10.67V6.5l1.35-1.69c.26-.33.03-.81-.39-.81H9.04c-.42 0-.65.48-.39.81L10 6.5v4.17L4.2 18.4c-.49.66-.02 1.6.8 1.6h14c.82 0 1.29-.94.8-1.6z"/></svg><span>시뮬레이터</span></a>
-      <a class="nav-item" href="vault.html"><svg viewBox="0 0 24 24" width="19.25" height="19.25" fill="currentColor" aria-hidden="true"><path d="M19 18l2 1V3c0-1.1-.9-2-2-2H8.99C7.89 1 7 1.9 7 3h10c1.1 0 2 .9 2 2v13zM15 5H5c-1.1 0-2 .9-2 2v16l7-3 7 3V7c0-1.1-.9-2-2-2z"/></svg><span>보관함</span></a>
-    </div>
-  </nav>
+  <nav class="tabbar" id="tabbar" aria-label="주요 메뉴"></nav>
 </div>
 <script src="js/app.js"></script>
 </body>

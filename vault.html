@@ -3,47 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#051424">
-<meta name="description" content="로또랩 - AI 번호 추천, 통계 분석, 번호 조합기, 역대 당첨 시뮬레이터">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234f46e5'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
-<title>로또랩 - 보관함</title>
+<meta name="theme-color" content="#f4f6fb">
+<meta name="description" content="저장한 로또 번호와 당첨 결과">
+<title>보관함 · 로또랩</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect width='34' height='34' rx='10' fill='%234f46e5'/%3E%3Ccircle cx='12' cy='13' r='5' fill='%23fbbf24'/%3E%3Ccircle cx='22' cy='13' r='5' fill='%2360a5fa'/%3E%3Ccircle cx='17' cy='22' r='5' fill='%23f87171'/%3E%3C/svg%3E">
+<script>
+  // 화면이 그려지기 전에 테마를 정해 깜빡임을 막습니다.
+  (function () {
+    var t; try { t = localStorage.getItem('lottolab.theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body data-page="vault">
 <div class="app">
-  <header class="app-header">
-    <div class="hd-row">
-      <a class="hd-brand" href="index.html">
-        <span class="hd-logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#03b5d3"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><circle cx="16" cy="17" r="8" fill="#fff" fill-opacity=".18"/><path d="M13 9h6v3.2l3.4 6.3c.5 1-.2 2.2-1.3 2.2H10.9c-1.1 0-1.8-1.2-1.3-2.2L13 12.2V9z" fill="#fff"/><circle cx="14.2" cy="18.2" r="1.3" fill="#4f46e5"/><circle cx="18.2" cy="16.6" r="1.1" fill="#03b5d3"/></svg></span>
-        <span class="hd-text"><span class="hd-name">로또랩</span><span class="hd-round"><i></i>제 1115회차 D-2</span></span>
-      </a>
-      <div class="hd-actions">
-        <button class="hd-bell" type="button" aria-label="알림 목록"><svg viewBox="0 0 24 24" width="14.667" height="18.333" fill="currentColor" aria-hidden="true"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg><i class="hd-dot"></i></button>
-        <span class="hd-avatar"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
+  <header class="appbar" id="top"></header>
+  <main>
+    <div class="page-head">
+      <h1>보관함</h1>
+      <p>저장한 번호와 당첨 결과예요. 저장한 뒤 처음 열린 추첨 결과로 확인해요.</p>
+    </div>
+
+    <section class="card" id="vault-tools" hidden>
+      <div class="card-head" style="margin-bottom:10px">
+        <div><h2 class="card-title" id="vault-count">0게임</h2><p class="card-sub" id="vault-summary"></p></div>
       </div>
-    </div>
-  </header>
-  <main class="page">
-    <section class="vault">
-      <h1 class="v-title">내 보관함</h1>
-      <p class="v-sub">저장한 번호는 이 기기의 브라우저에만 보관됩니다.</p>
-      <ul class="v-list" id="vault-list"></ul>
-      <div class="v-empty" id="vault-empty" hidden>아직 저장한 번호가 없습니다.<br>추천 번호나 조합기 결과를 저장해 보세요.<br><a href="index.html">AI 추천 번호 보러가기</a></div>
-      <button type="button" class="v-clear" id="vault-clear" hidden>보관함 비우기</button>
+      <div class="btn-row">
+        <button class="btn btn-secondary btn-sm" type="button" id="vault-copy">전체 복사</button>
+        <button class="btn btn-secondary btn-sm btn-danger" type="button" id="vault-clear">전체 삭제</button>
+      </div>
     </section>
+
+    <div id="vault-list"></div>
+
+    <section class="card empty" id="vault-empty" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg>
+      <b>아직 저장한 번호가 없어요</b>
+      <p>번호를 뽑아 저장하면 추첨 뒤 당첨 여부를 여기서 알려 드려요.</p>
+      <a class="btn btn-primary" href="combiner.html">번호 뽑으러 가기</a>
+    </section>
+
+    <p class="hint">저장한 번호는 이 기기의 브라우저에만 보관돼요. 브라우저 데이터를 지우면 함께 사라져요.</p>
+
+    <p class="notice"><b>참고</b> · 로또는 매 회차 독립적으로 추첨돼요. 과거 통계나 조합 조건으로 당첨 확률을 높일 수는 없고, 어떤 조합이든 1등 확률은 8,145,060분의 1로 같아요.</p>
   </main>
-  <nav class="app-nav" aria-label="하단 탭">
-    <div class="nav-row">
-      <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" width="20.167" height="20.167" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span>홈/추천</span></a>
-      <a class="nav-item" href="stats.html"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg><span>통계분석</span></a>
-      <a class="nav-item" href="combiner.html"><svg viewBox="0 0 24 24" width="16.5" height="16.5" fill="currentColor" aria-hidden="true"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg><span>번호조합</span></a>
-      <a class="nav-item" href="simulator.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19.8 18.4L14 10.67V6.5l1.35-1.69c.26-.33.03-.81-.39-.81H9.04c-.42 0-.65.48-.39.81L10 6.5v4.17L4.2 18.4c-.49.66-.02 1.6.8 1.6h14c.82 0 1.29-.94.8-1.6z"/></svg><span>시뮬레이터</span></a>
-      <a class="nav-item active" href="vault.html" aria-current="page"><svg viewBox="0 0 24 24" width="19.25" height="19.25" fill="currentColor" aria-hidden="true"><path d="M19 18l2 1V3c0-1.1-.9-2-2-2H8.99C7.89 1 7 1.9 7 3h10c1.1 0 2 .9 2 2v13zM15 5H5c-1.1 0-2 .9-2 2v16l7-3 7 3V7c0-1.1-.9-2-2-2z"/></svg><span>보관함</span></a>
-    </div>
-  </nav>
+  <nav class="tabbar" id="tabbar" aria-label="주요 메뉴"></nav>
 </div>
 <script src="js/app.js"></script>
 </body>

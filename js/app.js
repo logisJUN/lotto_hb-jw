@@ -1,31 +1,71 @@
-/* 로또랩 - 화면 인터랙션 (순수 JavaScript, 라이브러리 없음) */
+/* 로또랩 - 화면 동작 (순수 JavaScript, 라이브러리 없음)
+   모든 수치는 data/lotto.json(매주 자동 갱신)으로 계산합니다. */
 (function () {
   'use strict';
 
+  /* =====================================================
+     공통 유틸
+     ===================================================== */
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var page = document.body.getAttribute('data-page');
-  var VAULT_KEY = 'lottolab.vault';
+  var VAULT_KEY = 'lottolab.vault', THEME_KEY = 'lottolab.theme';
+  var DAY = 864e5, DRAW_UTC_MIN = 11 * 60 + 35;   // 추첨: 토요일 20:35(KST) = 11:35(UTC)
+  var WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
-  /* ---------- 공통 유틸 ---------- */
   function pad(n) { return (n < 10 ? '0' : '') + n; }
-  function range(n) { return n <= 10 ? 'y' : n <= 20 ? 'b' : n <= 30 ? 'r' : n <= 40 ? 'g' : 'n'; }
-  function rnd(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
-  function pick6(pool) {
-    var p = pool.slice(), out = [];
-    while (out.length < 6 && p.length) out.push(p.splice(rnd(0, p.length - 1), 1)[0]);
-    return out.sort(function (a, b) { return a - b; });
-  }
-  function consecutivePairs(a) { var c = 0; for (var i = 1; i < a.length; i++) if (a[i] - a[i - 1] === 1) c++; return c; }
-  function acValue(a) {
-    var d = {}; for (var i = 0; i < a.length; i++) for (var j = i + 1; j < a.length; j++) d[a[j] - a[i]] = 1;
-    return Object.keys(d).length - (a.length - 1);
-  }
-  function sameEnd(a) {
-    var m = {}, mx = 0; a.forEach(function (n) { var k = n % 10; m[k] = (m[k] || 0) + 1; if (m[k] > mx) mx = m[k]; });
-    return mx;
-  }
+  function zone(n) { return n <= 10 ? 'y' : n <= 20 ? 'b' : n <= 30 ? 'r' : n <= 40 ? 'g' : 'n'; }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
+  function oddCount(a) { return a.filter(function (n) { return n % 2; }).length; }
+  function consecutivePairs(a) { var c = 0; for (var i = 1; i < a.length; i++) if (a[i] - a[i - 1] === 1) c++; return c; }
+  function longestRun(a) { var best = 1, cur = 1; for (var i = 1; i < a.length; i++) { cur = a[i] - a[i - 1] === 1 ? cur + 1 : 1; if (cur > best) best = cur; } return best; }
+  function sameEndMax(a) { var m = {}, mx = 0; a.forEach(function (n) { var k = n % 10; m[k] = (m[k] || 0) + 1; if (m[k] > mx) mx = m[k]; }); return mx; }
+  function rnd(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function byNum(a, b) { return a - b; }
+  function comma(n) { return Math.round(n).toLocaleString('ko-KR'); }
+  function pct(n, d, digits) { return (d ? n / d * 100 : 0).toFixed(digits == null ? 1 : digits) + '%'; }
+  function won(n) {
+    if (n >= 1e8) return (n / 1e8).toFixed(n >= 1e10 ? 0 : 1).replace(/\.0$/, '') + '억원';
+    if (n >= 1e4) return comma(n / 1e4) + '만원';
+    return comma(n) + '원';
+  }
+  function fmtDate(iso, withDay) {
+    var d = new Date(iso + 'T00:00:00Z');
+    return iso.replace(/-/g, '.') + (withDay ? ' (' + WEEK[d.getUTCDay()] + ')' : '');
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function ball(n, cls) { return '<span class="ball ' + zone(n) + (cls ? ' ' + cls : '') + '">' + n + '</span>'; }
+  // nums: 번호 6개, opt.bonus: 보너스, opt.size: 'sm'|'lg', opt.hits: 강조할 번호 목록(나머지는 흐리게)
+  function balls(nums, opt) {
+    opt = opt || {};
+    var size = opt.size || '';
+    function cls(n) { return size + (opt.hits ? (opt.hits.indexOf(n) >= 0 ? ' hit' : ' off') : ''); }
+    var html = nums.map(function (n) { return ball(n, cls(n)); }).join('');
+    if (opt.bonus != null) html += '<span class="plus" aria-hidden="true">+</span>' + ball(opt.bonus, cls(opt.bonus));
+    return '<div class="balls' + (opt.nowrap ? ' nowrap' : '') + (opt.bonus != null ? ' bonus' : '') + '" role="img" aria-label="' + nums.join(', ') + (opt.bonus != null ? ', 보너스 ' + opt.bonus : '') + '">' + html + '</div>';
+  }
+
+  /* 아이콘 (24px 선 아이콘) */
+  var ICON = {
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+    spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+    chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    bookmark: '<path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    auto: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>',
+    refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
+    save: '<path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13M9 7V4h6v3"/>',
+    right: '<path d="m9 6 6 6-6 6"/>',
+    left: '<path d="m15 6-6 6 6 6"/>'
+  };
+  function icon(name, size) {
+    return '<svg viewBox="0 0 24 24" width="' + (size || 20) + '" height="' + (size || 20) + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[name] + '</svg>';
+  }
 
   var toastEl, toastTimer;
   function toast(msg) {
@@ -33,16 +73,7 @@
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 1800);
-  }
-  window.LottoLab = { toast: toast };
-
-  function loadVault() { try { return JSON.parse(localStorage.getItem(VAULT_KEY)) || []; } catch (e) { return []; } }
-  function saveVault(list) { try { localStorage.setItem(VAULT_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
-  function addToVault(sets, label) {
-    var v = loadVault(), t = new Date().toISOString();
-    sets.forEach(function (s) { v.unshift({ nums: s, label: label || '', at: t }); });
-    if (saveVault(v.slice(0, 100))) toast('보관함에 ' + sets.length + '게임을 저장했습니다'); else toast('저장 공간을 사용할 수 없습니다');
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2000);
   }
   function copyText(t) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -50,588 +81,600 @@
     }
     return Promise.resolve(false);
   }
-
-  /* ---------- 선택 상태(룩) 캡처 / 적용 ---------- */
-  function snap(n) {
-    var c = getComputedStyle(n);
-    return { bg: c.backgroundColor, bgi: c.backgroundImage, col: c.color, fw: c.fontWeight, ff: c.fontFamily, sh: c.boxShadow, fill: n.getAttribute && n.getAttribute('fill') };
-  }
-  function look(el) { return { root: snap(el), ps: $$('p', el).map(snap), icons: $$('svg', el).map(snap) }; }
-  function applyLook(el, lk) {
-    var r = lk.root;
-    el.style.backgroundColor = r.bg; el.style.backgroundImage = r.bgi; el.style.boxShadow = r.sh;
-    $$('p', el).forEach(function (p, i) {
-      var s = lk.ps[i]; if (!s) return;
-      p.style.color = s.col; p.style.fontWeight = s.fw; p.style.fontFamily = s.ff;
-    });
-    $$('svg', el).forEach(function (v, i) { var s = lk.icons[i]; if (s && s.fill) v.setAttribute('fill', s.fill); });
+  function copySets(sets) {
+    var t = sets.map(function (s) { return s.map(pad).join(' '); }).join('\n');
+    copyText(t).then(function (ok) { toast(ok ? sets.length + '게임을 복사했습니다' : '이 브라우저에서는 복사할 수 없습니다'); });
   }
 
-  var groupHooks = {};
-  function initGroups() {
-    var names = {};
-    $$('[data-grp]').forEach(function (e) { names[e.getAttribute('data-grp')] = 1; });
-    Object.keys(names).forEach(function (name) {
-      var els = $$('[data-grp="' + name + '"]');
-      var on = els.filter(function (e) { return e.hasAttribute('data-sel'); });
-      var off = els.filter(function (e) { return !e.hasAttribute('data-sel'); });
-      if (!on.length || !off.length) return;
-      var lookOn = look(on[0]), lookOff = look(off[0]);
-      var multi = els[0].hasAttribute('data-multi');
-      els.forEach(function (el) {
-        el.style.cursor = 'pointer';
-        el.setAttribute('role', multi ? 'checkbox' : 'radio');
-        el.setAttribute('aria-checked', el.hasAttribute('data-sel') ? 'true' : 'false');
-        el.setAttribute('tabindex', '0');
-        function fire() {
-          if (multi) {
-            var willOn = !el.hasAttribute('data-sel');
-            if (!willOn && els.filter(function (e) { return e.hasAttribute('data-sel'); }).length === 1) return; // 최소 1개 유지
-            set(el, willOn);
-          } else {
-            els.forEach(function (e) { set(e, e === el); });
-          }
-          if (groupHooks[name]) groupHooks[name](el, els);
-        }
-        el.addEventListener('click', fire);
-        el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); fire(); } });
-      });
-      function set(e, v) {
-        if (v) e.setAttribute('data-sel', '1'); else e.removeAttribute('data-sel');
-        e.setAttribute('aria-checked', v ? 'true' : 'false');
-        applyLook(e, v ? lookOn : lookOff);
-      }
-    });
-  }
-
-  /* ---------- 공통: data-act 버튼 ---------- */
-  var actions = {};
-  function initActions() {
-    $$('[data-act]').forEach(function (el) {
-      el.style.cursor = 'pointer';
-      el.setAttribute('role', 'button');
-      el.setAttribute('tabindex', '0');
-      function fire(ev) {
-        var a = el.getAttribute('data-act');
-        if (a === 'href') { location.href = el.getAttribute('data-href'); return; }
-        if (actions[a]) actions[a](el, ev);
-      }
-      el.addEventListener('click', fire);
-      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); fire(ev); } });
-    });
-    actions.soon = function () { toast('준비 중인 기능입니다'); };
-  }
-
-  /* ---------- 공통: 볼 렌더 (바텀시트 / 보관함) ---------- */
-  function ballsHTML(nums) {
-    return nums.map(function (n) { return '<span class="bl bl-' + range(n) + '">' + pad(n) + '</span>'; }).join('');
-  }
-  window.LottoLab.ballsHTML = ballsHTML;
-
-  /* ---------- 공통: 최신 회차 (data/lotto.json, 매주 자동 갱신) ---------- */
-  var DAY = 864e5;
-  var latestRound = 1114;   // 데이터를 못 읽으면 시안 값을 그대로 둡니다
-  // 추첨은 매주 토요일. 마지막 추첨일 다음 토요일부터 오늘(한국 시간) 이후 첫 추첨을 찾습니다.
-  function nextDraw(last) {
-    var kst = new Date(Date.now() + 9 * 3600e3);
-    var today = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
-    var d = Date.parse(last.date) + 7 * DAY, round = last.round + 1;
-    while (d < today) { d += 7 * DAY; round++; }
-    // 추첨 시각: 토요일 20:35(KST) = 11:35(UTC)
-    return { round: round, days: Math.round((d - today) / DAY), at: d + (11 * 60 + 35) * 6e4 };
-  }
-  // 홈의 "D-2 18:32:44" 카운트다운을 다음 추첨 시각까지 1초마다 갱신합니다.
-  function startCountdown(at) {
-    var el = $$('p').filter(function (p) { return /^D-\d+ \d\d:\d\d:\d\d$/.test(p.textContent); })[0];
-    if (!el) return;
-    function tick() {
-      var s = Math.floor((at - Date.now()) / 1000);
-      if (s < 0) { el.textContent = '추첨 결과 집계 중'; return; }
-      var d = Math.floor(s / 86400);
-      el.textContent = 'D-' + d + ' ' + pad(Math.floor(s / 3600) % 24) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
-      setTimeout(tick, 1000 - Date.now() % 1000);
-    }
-    tick();
-  }
-  // 시안에 적힌 회차(1115 = 다음 회차, 1114 = 지난 회차)를 실제 회차로 바꿉니다.
-  function roundText(t, from, to) {
-    return t.replace(new RegExp('1,?' + String(from).slice(1) + '(?=회)', 'g'), function (m) {
-      return m.indexOf(',') >= 0 ? to.toLocaleString('en-US') : String(to);
-    });
-  }
-  function paintLastDraw(last) {
-    var title = $$('p').filter(function (p) { return p.textContent === '지난 회차 당첨 결과'; })[0];
-    var head = title && title.closest('.u23'), row = head && head.nextElementSibling;
-    if (!row) return;
-    var balls = $$('.u67', row).map(function (c) { return c.firstElementChild; });
-    // 범위별 볼 색 클래스 (이 줄과 추천 번호 줄에서 수집)
-    var tpl = {};
-    balls.concat($$('[data-brow] > div')).forEach(function (b) {
-      var p = $('p', b), k = p && range(parseInt(p.textContent, 10));
-      if (k && !tpl[k]) tpl[k] = b.className;
-    });
-    last.numbers.concat(last.bonus).forEach(function (n, i) {
-      var b = balls[i]; if (!b) return;
-      if (tpl[range(n)]) b.className = tpl[range(n)];
-      $('p', b).textContent = pad(n);
-    });
-  }
-  function initLatest() {
-    if (!window.fetch) return;
-    fetch('data/lotto.json', { cache: 'no-cache' })
-      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-      .then(function (draws) {
-        var last = draws[draws.length - 1], next = nextDraw(last);
-        latestRound = last.round;
-        var hd = $('.hd-round');
-        if (hd) hd.lastChild.nodeValue = '제 ' + next.round + '회차 ' + (next.days ? 'D-' + next.days : 'D-DAY');
-        $$('p').forEach(function (p) {
-          var t = p.textContent;
-          if (!/회/.test(t) || p.children.length) return;
-          var u = roundText(roundText(t, 1115, next.round), 1114, last.round);
-          if (u !== t) p.textContent = u;
-        });
-        if (page === 'index') { paintLastDraw(last); startCountdown(next.at); }
-        if (page === 'stats') initStats(draws);
-      })
-      .catch(function () {});
+  /* 보관함 (이 기기의 localStorage) */
+  function loadVault() { try { return JSON.parse(localStorage.getItem(VAULT_KEY)) || []; } catch (e) { return []; } }
+  function saveVault(list) { try { localStorage.setItem(VAULT_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+  function addToVault(sets, label) {
+    var v = loadVault(), t = new Date().toISOString();
+    sets.forEach(function (s) { v.unshift({ nums: s.slice().sort(byNum), label: label || '', at: t }); });
+    if (saveVault(v.slice(0, 200))) toast('보관함에 ' + sets.length + '게임을 저장했습니다'); else toast('저장 공간을 사용할 수 없습니다');
   }
 
   /* =====================================================
-     홈 (index)
+     당첨 데이터
+     ===================================================== */
+  var drawsPromise;
+  function loadDraws() {
+    if (!drawsPromise) {
+      drawsPromise = fetch('data/lotto.json', { cache: 'no-cache' }).then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
+      });
+    }
+    return drawsPromise;
+  }
+  function drawAt(d) { return Date.parse(d.date + 'T00:00:00Z') + DRAW_UTC_MIN * 6e4; }
+  // 다음 추첨: 마지막 추첨 다음 주부터, 추첨 뒤 3시간(결과 집계)이 지나지 않은 첫 추첨
+  function nextDraw(last) {
+    var at = drawAt(last) + 7 * DAY, round = last.round + 1, now = Date.now();
+    while (at + 3 * 3600e3 < now) { at += 7 * DAY; round++; }
+    return { round: round, at: at };
+  }
+  function kstDateText(ms) {
+    var d = new Date(ms + 9 * 3600e3);
+    return (d.getUTCMonth() + 1) + '월 ' + d.getUTCDate() + '일 (' + WEEK[d.getUTCDay()] + ') 오후 8:35';
+  }
+  function kstDay(ms) { return Math.floor((ms + 9 * 3600e3) / DAY); }
+  // 등수: 1(6개) 2(5개+보너스) 3(5개) 4(4개) 5(3개), 0은 낙첨
+  function rankOf(nums, d) {
+    var m = nums.filter(function (n) { return d.numbers.indexOf(n) >= 0; }).length;
+    if (m === 6) return 1;
+    if (m === 5) return nums.indexOf(d.bonus) >= 0 ? 2 : 3;
+    return m === 4 ? 4 : m === 3 ? 5 : 0;
+  }
+  function prizeOf(rank, d) {
+    if (!rank) return 0;
+    if (d.prizes) return d.prizes[rank - 1] || 0;
+    return rank === 1 ? d.firstPrize || 0 : rank === 4 ? 50000 : rank === 5 ? 5000 : 0;
+  }
+  function hitsOf(nums, d) { return nums.filter(function (n) { return d.numbers.indexOf(n) >= 0 || n === d.bonus; }); }
+  var RANK_TEXT = ['낙첨', '1등', '2등', '3등', '4등', '5등'];
+
+  /* =====================================================
+     공통 틀: 머리말, 하단 탭, 테마
+     ===================================================== */
+  var TABS = [
+    ['index', 'index.html', '홈', 'home'],
+    ['combiner', 'combiner.html', '번호 생성', 'spark'],
+    ['stats', 'stats.html', '통계', 'chart'],
+    ['simulator', 'simulator.html', '당첨 조회', 'search'],
+    ['vault', 'vault.html', '보관함', 'bookmark']
+  ];
+  var THEME_NAME = { system: '기기 설정', light: '라이트', dark: '다크' };
+  function themePref() { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch (e) { return 'system'; } }
+  function applyTheme(pref) {
+    var t = pref === 'light' || pref === 'dark' ? pref : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', t);
+    var meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', t === 'dark' ? '#0b1020' : '#f4f6fb');
+    var btn = $('#theme-btn');
+    if (btn) {
+      btn.innerHTML = icon(pref === 'light' ? 'sun' : pref === 'dark' ? 'moon' : 'auto');
+      btn.setAttribute('aria-label', '화면 테마: ' + THEME_NAME[pref] + ' (눌러서 바꾸기)');
+      btn.title = '테마: ' + THEME_NAME[pref];
+    }
+  }
+  function initShell() {
+    var top = $('#top');
+    if (top) {
+      top.innerHTML =
+        '<a class="brand" href="index.html" aria-label="로또랩 홈">' +
+        '<svg class="brand-mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="#4f46e5"/><circle cx="12" cy="13" r="5" fill="#fbbf24"/><circle cx="22" cy="13" r="5" fill="#60a5fa"/><circle cx="17" cy="22" r="5" fill="#f87171"/></svg>' +
+        '<span><span class="brand-name">로또랩</span><span class="brand-sub" id="next-sub">당첨 데이터를 불러오는 중</span></span></a>' +
+        '<button class="icon-btn" id="theme-btn" type="button"></button>';
+      $('#theme-btn').addEventListener('click', function () {
+        var order = ['system', 'light', 'dark'], next = order[(order.indexOf(themePref()) + 1) % 3];
+        try { if (next === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next); } catch (e) {}
+        applyTheme(next);
+        toast('화면 테마: ' + (next === 'system' ? '기기 설정을 따름' : THEME_NAME[next]));
+      });
+    }
+    if (window.matchMedia) {
+      var mq = matchMedia('(prefers-color-scheme: dark)');
+      var onChange = function () { applyTheme(themePref()); };
+      if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange);
+    }
+    applyTheme(themePref());
+
+    var nav = $('#tabbar');
+    if (nav) nav.innerHTML = TABS.map(function (t) {
+      return '<a class="tab" href="' + t[1] + '"' + (t[0] === page ? ' aria-current="page"' : '') + '>' + icon(t[3], 24) + '<span>' + t[2] + '</span></a>';
+    }).join('');
+
+    loadDraws().then(function (draws) {
+      var next = nextDraw(draws[draws.length - 1]), now = Date.now(), days = kstDay(next.at) - kstDay(now);
+      $('#next-sub').innerHTML = '제 <b>' + next.round + '회</b> 추첨 ' + (next.at <= now ? '결과 집계 중' : days === 0 ? '오늘 저녁' : 'D-' + days);
+    }).catch(function () { $('#next-sub').textContent = '당첨 데이터를 불러오지 못했습니다'; });
+  }
+
+  // 데이터를 못 읽었을 때 본문에 보여 줄 안내
+  function loadError(el) {
+    if (el) el.innerHTML = '<div class="empty"><b>당첨 데이터를 불러오지 못했어요</b><p>인터넷 연결을 확인한 뒤 새로고침해 주세요.</p><button class="btn btn-secondary" type="button" onclick="location.reload()">새로고침</button></div>';
+  }
+
+  /* =====================================================
+     번호 생성 엔진 (홈 빠른 뽑기 + 번호 생성 화면)
+     ===================================================== */
+  // opt: fixed[], excluded[], odd[] (허용하는 홀수 개수), sumMin, sumMax, noRun3, noSameEnd3
+  function generate(count, opt) {
+    opt = opt || {};
+    var fixed = opt.fixed || [], excluded = opt.excluded || [];
+    var pool = []; for (var n = 1; n <= 45; n++) if (fixed.indexOf(n) < 0 && excluded.indexOf(n) < 0) pool.push(n);
+    var out = [], seen = {}, tries = 0;
+    while (out.length < count && tries < 40000) {
+      tries++;
+      var p = pool.slice(), s = fixed.slice();
+      while (s.length < 6 && p.length) s.push(p.splice(rnd(0, p.length - 1), 1)[0]);
+      if (s.length < 6) break;
+      s.sort(byNum);
+      var key = s.join(',');
+      if (seen[key]) continue;
+      if (opt.odd && opt.odd.length && opt.odd.indexOf(oddCount(s)) < 0) continue;
+      if (opt.sumMin != null && sum(s) < opt.sumMin) continue;
+      if (opt.sumMax != null && sum(s) > opt.sumMax) continue;
+      if (opt.noRun3 && longestRun(s) >= 3) continue;
+      if (opt.noSameEnd3 && sameEndMax(s) >= 3) continue;
+      seen[key] = 1; out.push(s);
+    }
+    return out;
+  }
+  function gameMeta(s) { var o = oddCount(s); return '홀짝 ' + o + ':' + (6 - o) + ' · 합계 ' + sum(s); }
+  function gamesHTML(sets, withSave) {
+    return sets.map(function (s, i) {
+      var L = String.fromCharCode(65 + i);
+      return '<div class="game"><span class="game-label">' + L + '</span>' +
+        '<div class="game-body">' + balls(s, { size: 'sm', nowrap: true }) + '<div class="game-meta">' + gameMeta(s) + '</div></div>' +
+        (withSave ? '<div class="game-actions"><button class="icon-btn" type="button" data-save="' + i + '" aria-label="' + L + ' 게임 저장">' + icon('save') + '</button></div>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  /* =====================================================
+     보관함 결과 (홈 요약 + 보관함 화면 공용)
+     ===================================================== */
+  // 저장한 시각 이후 첫 추첨이 대상 회차입니다. 아직 추첨 전이면 draw 없음.
+  function vaultResult(o, draws) {
+    var at = Date.parse(o.at), target = null;
+    for (var i = draws.length - 1; i >= 0; i--) { if (drawAt(draws[i]) > at) target = draws[i]; else break; }
+    if (!target) return { o: o, round: nextDraw(draws[draws.length - 1]).round };
+    return { o: o, draw: target, round: target.round, rank: rankOf(o.nums, target), hits: hitsOf(o.nums, target) };
+  }
+  function vaultRowHTML(r, i, withActions) {
+    var badge = !r.draw ? '<span class="badge wait">' + r.round + '회 추첨 대기</span>'
+      : r.rank ? '<span class="badge win">' + r.round + '회 ' + RANK_TEXT[r.rank] + '</span>'
+        : '<span class="badge">' + r.round + '회 낙첨</span>';
+    var d = new Date(r.o.at);
+    var when = isNaN(d) ? '' : (d.getMonth() + 1) + '월 ' + d.getDate() + '일 저장';
+    return '<div class="game"><div class="game-body">' +
+      balls(r.o.nums, { size: 'sm', nowrap: true, hits: r.draw ? r.hits : null }) +
+      '<div class="game-meta">' + badge + ' <span>' + esc(r.o.label || '저장') + ' · ' + when + '</span></div></div>' +
+      (withActions ? '<div class="game-actions"><button class="icon-btn" type="button" data-copy="' + i + '" aria-label="복사">' + icon('copy') + '</button>' +
+        '<button class="icon-btn btn-danger" type="button" data-del="' + i + '" aria-label="삭제">' + icon('trash') + '</button></div>' : '') +
+      '</div>';
+  }
+
+  /* =====================================================
+     홈
      ===================================================== */
   function initHome() {
-    var rows = $$('[data-brow]');
-    var crows = $$('[data-crow]');
-    // 범위별 볼/그림자 클래스 템플릿
-    var tpl = {};
-    rows.forEach(function (row) {
-      Array.prototype.forEach.call(row.children, function (b) {
-        var n = parseInt(b.textContent, 10);
-        var k = range(n);
-        if (!tpl[k]) tpl[k] = { ball: b.className, shadow: b.firstElementChild ? b.firstElementChild.className : '' };
-      });
-    });
-    function paintRow(row, nums) {
-      Array.prototype.forEach.call(row.children, function (b, i) {
-        var n = nums[i], t = tpl[range(n)];
-        if (t) { b.className = t.ball; if (b.firstElementChild && t.shadow) b.firstElementChild.className = t.shadow; }
-        var p = $('p', b); if (p) p.textContent = pad(n);
-      });
-    }
-    function card(row) { return row.parentNode; }
-    function updateStats(row, nums) {
-      $$('p', card(row)).forEach(function (p) {
-        var t = p.textContent;
-        if (/^연속 /.test(t)) p.textContent = '연속 ' + consecutivePairs(nums) + '개';
-        else if (/^홀짝 /.test(t)) { var o = nums.filter(function (n) { return n % 2; }).length; p.textContent = '홀짝 ' + o + ':' + (6 - o); }
-        else if (/^고저 /.test(t)) { var l = nums.filter(function (n) { return n <= 22; }).length; p.textContent = '고저 ' + l + ':' + (6 - l); }
-        else if (/^총합 /.test(t)) p.textContent = t.replace(/^총합 \d+/, '총합 ' + sum(nums));
-      });
-    }
-    function setCompact(row, nums) {
-      var i = 0;
-      Array.prototype.forEach.call(row.children, function (c, idx) { if (idx % 2 === 0) { var p = $('p', c) || c; p.textContent = pad(nums[i++]); } });
-    }
-    var current = [];
-    function readCurrent() {
-      current = rows.map(function (r) { return Array.prototype.map.call(r.children, function (b) { return parseInt(b.textContent, 10); }); });
-      crows.forEach(function (r) {
-        var a = []; Array.prototype.forEach.call(r.children, function (c, idx) { if (idx % 2 === 0) a.push(parseInt(c.textContent, 10)); });
-        current.push(a);
-      });
-    }
-    readCurrent();
-    actions.regen = function () {
-      var all = []; for (var i = 1; i <= 45; i++) all.push(i);
-      current = [];
-      rows.forEach(function (r) { var n = pick6(all); paintRow(r, n); updateStats(r, n); current.push(n); });
-      crows.forEach(function (r) { var n = pick6(all); setCompact(r, n); current.push(n); });
-      toast('새 번호를 추출했습니다');
-    };
-    actions.copy = function () {
-      var labels = 'ABCDE';
-      var txt = current.map(function (n, i) { return labels[i] + '  ' + n.map(pad).join(' '); }).join('\n');
-      copyText(txt).then(function (ok) { toast(ok ? '번호 ' + current.length + '게임을 복사했습니다' : '이 브라우저에서는 복사할 수 없습니다'); });
-    };
-    actions.save = function () { addToVault(current.slice(), 'AI 추천'); };
-  }
-
-  /* =====================================================
-     번호조합 (combiner)
-     ===================================================== */
-  function initCombiner() {
-    var grid = $('[data-grid]');
-    var balls = Array.prototype.slice.call(grid.children);
-    var MAXF = 3, MAXX = 10;
-    var mode = 'fix';
-
-    function ballNum(b) { var m = b.textContent.match(/\d{2}/); return m ? parseInt(m[0], 10) : 0; }
-    function kindOf(b) {
-      var d = ($('path', b) || {}).getAttribute ? $('path', b).getAttribute('d') : '';
-      if (!d) return 0;
-      return d.indexOf('M9 16.17') === 0 ? 1 : 2;
-    }
-    var info = balls.map(function (b) {
-      var cs = getComputedStyle(b);
-      // 각 볼의 그리드 위치는 클래스에 포함되어 있으므로, 상태 변경 시에도 유지되도록 인라인으로 고정
-      b.style.gridColumn = cs.gridColumnStart; b.style.gridRow = cs.gridRowStart;
-      return { el: b, n: ballNum(b), st: kindOf(b), cls: b.className, html: b.innerHTML };
+    var heroEl = $('#latest'), countEl = $('#countdown'), quickEl = $('#quick-games'), mineEl = $('#mine');
+    var quick = [], lastDraws = null;
+    function rollQuick() { quick = generate(5); quickEl.innerHTML = gamesHTML(quick, true); }
+    rollQuick();
+    $('#quick-reroll').addEventListener('click', function () { rollQuick(); toast('새 번호 5게임을 뽑았습니다'); });
+    $('#quick-save').addEventListener('click', function () { addToVault(quick, '빠른 뽑기'); renderMine(); });
+    quickEl.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-save]'); if (!b) return;
+      addToVault([quick[+b.getAttribute('data-save')]], '빠른 뽑기'); renderMine();
     });
 
-    // 템플릿: 범위별 일반 볼, 고정 볼 부가요소, 제외 볼
-    var normal = {}, extras = '', excl = null;
-    info.forEach(function (o) {
-      var k = range(o.n);
-      if (o.st === 0 && !normal[k]) normal[k] = { cls: o.cls, html: o.html.replace(/>\s*\d{2}\s*</, '>{n}<') };
-    });
-    info.forEach(function (o) {
-      if (o.st === 1 && !extras) {
-        var tmp = document.createElement('div'); tmp.innerHTML = o.html;
-        extras = Array.prototype.slice.call(tmp.children, 1).map(function (c) { return c.outerHTML; }).join('');
-      }
-      if (o.st === 2 && !excl) excl = { cls: o.cls, html: o.html.replace(/>\s*\d{2}\s*</, '>{n}<') };
-    });
-
-    function render(o) {
-      var el = o.el, k = range(o.n), t = normal[k];
-      if (o.st === 2 && excl) { el.className = excl.cls; el.innerHTML = excl.html.replace('{n}', pad(o.n)); }
-      else {
-        el.className = t.cls; el.innerHTML = t.html.replace('{n}', pad(o.n));
-        if (o.st === 1) el.insertAdjacentHTML('beforeend', extras);
-      }
-      el.setAttribute('aria-pressed', o.st ? 'true' : 'false');
-    }
-    function count(st) { return info.filter(function (o) { return o.st === st; }).length; }
-    function list(st) { return info.filter(function (o) { return o.st === st; }).map(function (o) { return pad(o.n); }); }
-
-    var ps = $$('p');
-    function pByRe(re) { return ps.filter(function (p) { return re.test(p.textContent); })[0]; }
-    var pFix = pByRe(/^\d+ \/ 3개 선택됨$/), pExc = pByRe(/^\d+ \/ 10개 선택됨$/);
-    var pLegFix = pByRe(/^고정수 \(/), pLegExc = pByRe(/^제외수 \(/), pLegRest = pByRe(/^일반 랜덤풀 \(/);
-    function setLeg(p, label, txt) {
-      if (!p) return;
-      p.textContent = label;
-      var n = p.nextElementSibling;
-      if (n && n.tagName === 'P') { n.style.display = ''; n.textContent = txt; n.style.whiteSpace = 'normal'; n.style.wordBreak = 'keep-all'; }
-    }
-    if (pLegFix) {
-      var legRow = pLegFix.parentNode.parentNode.parentNode.parentNode;
-      Array.prototype.forEach.call(legRow.children, function (it) { it.style.flex = '1 1 0'; it.style.minWidth = '0'; it.style.alignItems = 'flex-start'; });
-      $$('p', legRow).forEach(function (p) { p.style.whiteSpace = 'normal'; });
-    }
-    function fmt(a) { return a.length ? a.join(', ') : '없음'; }
-    function refresh() {
-      if (pFix) pFix.textContent = count(1) + ' / ' + MAXF + '개 선택됨';
-      if (pExc) pExc.textContent = count(2) + ' / ' + MAXX + '개 선택됨';
-      setLeg(pLegFix, '고정수', '(' + fmt(list(1)) + ')');
-      setLeg(pLegExc, '제외수', '(' + fmt(list(2)) + ')');
-      setLeg(pLegRest, '일반 랜덤풀', '(' + (45 - count(1) - count(2)) + '개)');
-    }
-    info.forEach(function (o) {
-      o.el.style.cursor = 'pointer'; o.el.setAttribute('role', 'button');
-      o.el.setAttribute('aria-label', pad(o.n) + '번');
-      o.el.addEventListener('click', function () {
-        var want = mode === 'fix' ? 1 : 2, max = mode === 'fix' ? MAXF : MAXX;
-        if (o.st === want) o.st = 0;
-        else {
-          if (count(want) >= max) { toast((want === 1 ? '고정수는 최대 ' : '제외수는 최대 ') + max + '개까지 지정할 수 있습니다'); return; }
-          o.st = want;
-        }
-        render(o); refresh();
-      });
-    });
-    refresh();
-
-    groupHooks.mode = function (el, els) { mode = els.indexOf(el) === 0 ? 'fix' : 'exc'; };
-    actions.reset = function () { info.forEach(function (o) { o.st = 0; render(o); }); refresh(); toast('선택을 초기화했습니다'); };
-
-    // 토글 스위치
-    var switches = $$('[data-switch]').map(function (s) {
-      var track = s.children[0], knob = s.children[1], on = true;
-      s.style.cursor = 'pointer'; s.setAttribute('role', 'switch'); s.setAttribute('aria-checked', 'true'); s.setAttribute('tabindex', '0');
-      var api = { get on() { return on; } };
-      function paint() {
-        track.style.backgroundColor = on ? '#4cd7f6' : '#273647';
-        knob.style.left = on ? '22px' : '2px';
-        knob.style.backgroundColor = on ? '#1d00a5' : '#c7c4d8';
-        track.style.transition = knob.style.transition = 'all .18s'; 
-        s.setAttribute('aria-checked', on ? 'true' : 'false');
-      }
-      function flip() { on = !on; paint(); }
-      s.addEventListener('click', flip);
-      s.addEventListener('keydown', function (ev) { if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); flip(); } });
-      return api;
-    });
-
-    // 생성 게임 수
-    var genP = pByRe(/^조건 만족 번호 조합 생성/);
-    function games() {
-      var sel = $('[data-grp="games"][data-sel]');
-      var m = sel ? sel.textContent.match(/\d+/) : null; return m ? parseInt(m[0], 10) : 5;
-    }
-    groupHooks.games = function () { if (genP) genP.textContent = '조건 만족 번호 조합 생성 (' + games() + '게임)'; };
-
-    function selectedTexts(name) { return $$('[data-grp="' + name + '"][data-sel]').map(function (e) { return $('p', e).textContent.replace(/\s/g, ''); }); }
-
-    actions.generate = function () {
-      var fixed = info.filter(function (o) { return o.st === 1; }).map(function (o) { return o.n; });
-      var banned = info.filter(function (o) { return o.st === 2; }).map(function (o) { return o.n; });
-      var pool = info.map(function (o) { return o.n; }).filter(function (n) { return fixed.indexOf(n) < 0 && banned.indexOf(n) < 0; });
-      var oe = selectedTexts('oddeven');                     // 예: ["4:2","3:3","2:4"]
-      var hl = selectedTexts('hilo')[0] || '';
-      var loOnly = /저번호/.test(hl) ? 4 : /고번호/.test(hl) ? 2 : 3; // 저번호 개수(1~22)
-      var N = games(), out = [], seen = {}, tries = 0;
-      while (out.length < N && tries++ < 40000) {
-        var s = fixed.concat(pick6(pool).slice(0, 6 - fixed.length)).sort(function (a, b) { return a - b; });
-        if (s.length !== 6 || new Set(s).size !== 6) continue;
-        var odd = s.filter(function (n) { return n % 2; }).length;
-        if (oe.indexOf(odd + ':' + (6 - odd)) < 0) continue;
-        var low = s.filter(function (n) { return n <= 22; }).length;
-        if (low !== loOnly) continue;
-        var t = sum(s); if (t < 120 || t > 165) continue;
-        if (switches[0] && switches[0].on && consecutivePairs(s) > 1) continue;
-        if (switches[1] && switches[1].on && acValue(s) < 7) continue;
-        if (switches[2] && switches[2].on && sameEnd(s) > 2) continue;
-        var key = s.join(','); if (seen[key]) continue; seen[key] = 1; out.push(s);
-      }
-      if (!out.length) { toast('조건이 너무 엄격합니다. 필터를 조금 완화해 주세요'); return; }
-      openSheet(out);
-    };
-  }
-
-  /* ---------- 결과 바텀시트 ---------- */
-  function openSheet(sets) {
-    var wrap = document.createElement('div');
-    wrap.className = 'sheet-wrap';
-    wrap.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-label="생성 결과"><div class="sheet-grip"></div>' +
-      '<div class="sheet-head"><strong>생성된 번호 ' + sets.length + '게임</strong><button type="button" class="sheet-x" aria-label="닫기">✕</button></div>' +
-      '<ol class="sheet-list">' + sets.map(function (s, i) {
-        return '<li><span class="sheet-idx">' + 'ABCDEFGHIJ'[i] + '</span><span class="sheet-balls">' + ballsHTML(s) + '</span></li>';
-      }).join('') + '</ol>' +
-      '<div class="sheet-actions"><button type="button" data-s="copy">번호 복사</button><button type="button" data-s="save" class="primary">보관함 저장</button></div></div>';
-    document.body.appendChild(wrap);
-    requestAnimationFrame(function () { wrap.classList.add('open'); });
-    function close() { wrap.classList.remove('open'); setTimeout(function () { wrap.remove(); }, 200); }
-    wrap.addEventListener('click', function (e) {
-      if (e.target === wrap || e.target.classList.contains('sheet-x')) return close();
-      var b = e.target.closest('[data-s]'); if (!b) return;
-      if (b.getAttribute('data-s') === 'copy') {
-        copyText(sets.map(function (s, i) { return 'ABCDEFGHIJ'[i] + '  ' + s.map(pad).join(' '); }).join('\n')).then(function (ok) { toast(ok ? '번호를 복사했습니다' : '이 브라우저에서는 복사할 수 없습니다'); });
-      } else { addToVault(sets, '조합기'); close(); }
-    });
-    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
-  }
-
-  /* =====================================================
-     시뮬레이터
-     ===================================================== */
-  function initSimulator() {
-    actions.vault = function () {
+    function renderMine() {
+      if (!lastDraws) return;
       var v = loadVault();
-      if (!v.length) { toast('보관함이 비어 있습니다'); return; }
-      setTest(v[0].nums); toast('보관함의 최근 번호를 불러왔습니다');
-    };
-    actions.aiload = function () {
-      var all = []; for (var i = 1; i <= 45; i++) all.push(i);
-      setTest(pick6(all)); toast('AI 추천번호를 불러왔습니다');
-    };
-    function testRow() {
-      return $$('div').filter(function (d) { return d.children.length === 6 && Array.prototype.every.call(d.children, function (c) { return /^\d\d/.test(c.textContent.trim()); }); })[0];
+      if (!v.length) {
+        mineEl.innerHTML = '<p class="muted">아직 저장한 번호가 없어요. 위에서 마음에 드는 번호를 저장하면 추첨 뒤 결과를 여기서 바로 볼 수 있어요.</p>';
+        return;
+      }
+      var checked = 0, wins = 0, waiting = 0;
+      var rows = v.map(function (o) { var r = vaultResult(o, lastDraws); if (r.draw) { checked++; if (r.rank) wins++; } else waiting++; return r; });
+      mineEl.innerHTML =
+        '<div class="tiles"><div class="tile"><span>저장한 게임</span><b class="num">' + v.length + '</b></div>' +
+        '<div class="tile"><span>당첨 / 결과 나온 게임</span><b class="num' + (wins ? ' win' : '') + '">' + wins + ' / ' + checked + '</b></div></div>' +
+        '<div class="games" style="margin-top:12px">' + rows.slice(0, 3).map(function (r) { return vaultRowHTML(r); }).join('') + '</div>' +
+        (waiting ? '<p class="hint" style="margin-top:10px">' + waiting + '게임은 다음 추첨 뒤에 결과가 나와요.</p>' : '');
     }
-    var tpl = {};
-    (function () {
-      var row = testRow(); if (!row) return;
-      Array.prototype.forEach.call(row.children, function (cell) {
-        var ball = cell.firstElementChild, n = parseInt($('p', ball).textContent, 10), k = range(n);
-        if (!tpl[k]) tpl[k] = { ball: ball.className, inner: ball.firstElementChild ? ball.firstElementChild.className : '' };
-      });
-    })();
-    function setTest(nums) {
-      var row = testRow(); if (!row) return;
-      Array.prototype.forEach.call(row.children, function (cell, i) {
-        var ball = cell.firstElementChild, n = nums[i], t = tpl[range(n)];
-        if (t) { ball.className = t.ball; if (ball.firstElementChild && t.inner) ball.firstElementChild.className = t.inner; }
-        $('p', ball).textContent = pad(n);
-        var lab = cell.lastElementChild && $('p', cell.lastElementChild);
-        if (lab && cell.lastElementChild !== ball) lab.textContent = n < 10 ? '단번대' : (Math.floor(n / 10) * 10) + '번대';
-      });
-    }
-    actions.rerun = function (el) {
-      var p = $('p', el); if (!p) return;
-      var old = p.textContent; p.textContent = '계산 중…'; el.style.pointerEvents = 'none';
-      setTimeout(function () { p.textContent = old; el.style.pointerEvents = ''; toast(latestRound.toLocaleString('en-US') + '회차 시뮬레이션을 다시 실행했습니다'); }, 900);
-    };
-    actions.share = function () {
-      var url = location.href;
-      if (navigator.share) { navigator.share({ title: '로또랩 시뮬레이션 결과', url: url }).catch(function () {}); return; }
-      copyText(url).then(function (ok) { toast(ok ? '링크를 복사했습니다' : '이 브라우저에서는 공유할 수 없습니다'); });
-    };
-    actions.savesim = function () {
-      var row = testRow();
-      var nums = row ? Array.prototype.map.call(row.children, function (c) { return parseInt($('p', c).textContent, 10); }) : [];
-      if (nums.length === 6) addToVault([nums], '시뮬레이터'); else toast('저장할 번호가 없습니다');
-    };
+
+    loadDraws().then(function (draws) {
+      lastDraws = draws;
+      var d = draws[draws.length - 1], next = nextDraw(d);
+      var first = d.prizes ? d.prizes[0] : d.firstPrize, winners = d.winners ? d.winners[0] : d.firstWinners;
+      heroEl.innerHTML =
+        '<div class="card-head"><div><p class="card-sub">' + fmtDate(d.date, true) + ' 추첨</p><h2 class="card-title" style="font-size:22px">제 ' + d.round + '회 당첨번호</h2></div>' +
+        '<a class="link" href="simulator.html">회차별 조회' + icon('right', 16) + '</a></div>' +
+        balls(d.numbers, { bonus: d.bonus, size: 'lg', nowrap: true }) +
+        '<div class="hero-meta"><div class="hero-stat"><span>1등 당첨금 (1인)</span><b class="num">' + (first ? won(first) : '-') + '</b></div>' +
+        '<div class="hero-stat"><span>1등 당첨자</span><b class="num">' + (winners != null ? winners + '명' : '-') + '</b></div></div>';
+      $('#count-title').textContent = '제 ' + next.round + '회 추첨까지';
+      $('#count-date').textContent = kstDateText(next.at);
+      (function tick() {
+        var s = Math.max(0, Math.floor((next.at - Date.now()) / 1000));
+        if (!s) { countEl.innerHTML = '<p class="muted" style="grid-column:1/-1">추첨이 끝났어요. 결과는 잠시 뒤 자동으로 반영됩니다.</p>'; return; }
+        var parts = [[Math.floor(s / 86400), '일'], [Math.floor(s / 3600) % 24, '시간'], [Math.floor(s / 60) % 60, '분'], [s % 60, '초']];
+        countEl.innerHTML = parts.map(function (p) { return '<div><b class="num">' + pad(p[0]) + '</b><span>' + p[1] + '</span></div>'; }).join('');
+        setTimeout(tick, 1000 - Date.now() % 1000);
+      })();
+      renderMine();
+    }).catch(function () { loadError(heroEl); countEl.innerHTML = ''; mineEl.innerHTML = ''; });
   }
 
   /* =====================================================
-     통계분석 (data/lotto.json으로 계산)
+     번호 생성
      ===================================================== */
-  var ZONES = [[1, 10, '노랑'], [11, 20, '파랑'], [21, 30, '빨강'], [31, 40, '회색'], [41, 45, '초록']];
-  function findP(t) { return $$('p').filter(function (p) { return p.textContent === t; })[0]; }
-  function pct(n, d, digits) { return (d ? (n / d * 100) : 0).toFixed(digits || 0) + '%'; }
-  function setBar(el, ratio) { if (el) el.style.right = (100 - Math.max(0, Math.min(1, ratio)) * 100).toFixed(1) + '%'; }
-  function oddCount(nums) { return nums.filter(function (n) { return n % 2; }).length; }
-
-  function initStats(draws) {
-    // 시안 값이 들어 있는 자리를 먼저 찾아 둡니다.
-    var el = {
-      hotZone: findP('11~20'), hotRate: findP('출현 빈도 24% 기록'),
-      subtitle: findP('최근 100회 당첨번호 전수 집계'),
-      rankRows: $$('.u182'),
-      oeMode: findP('최빈 패턴 3:3'), oeBar: $('.u203') ? $('.u203').children : [], oePs: $$('p', $('.u208')),
-      sumGold: findP('골든존 131~160'),
-      sumRows: $$('.u218', findP('총합(Sum) 분포 히스토그램').closest('.u202')),
-      consec: ['연속 없음', '1쌍 등장', '2쌍 등장'].map(function (t) { var p = findP(t); return p && $('p', p.parentNode.nextElementSibling); }),
-      digits: $$('.u243 p'), digitText: findP('3끝수 & 7끝수 집중'),
-      zoneRows: $$('.u251 > .u218'),
-      zoneHi: null,
-      ai: $$('p').filter(function (p) { return /^홀짝 \d:\d, 총합/.test(p.textContent); })[0]
-    };
-    // 순위 줄의 볼 색 클래스 (범위별)
-    var ballCls = {};
-    el.rankRows.forEach(function (row) {
-      var b = row.firstElementChild; ballCls[range(parseInt(b.textContent, 10))] = b.className;
-    });
-    // 구간 줄 강조 스타일 (시안에서 둘째 줄이 강조, 첫째 줄이 보통)
-    function zoneParts(row) { return [$('.u219 > div', row), $('.u255 > div', row)]; }
-    if (el.zoneRows.length > 1) el.zoneHi = [zoneParts(el.zoneRows[1]).map(function (d) { return d.className; }),
-      zoneParts(el.zoneRows[0]).map(function (d) { return d.className; })];
-    // 번호별 마지막 출현 회차 (장기 미출현 계산용, 기간과 무관)
-    var lastSeen = {}, latest = draws[draws.length - 1].round;
-    draws.forEach(function (d) { d.numbers.forEach(function (n) { lastSeen[n] = d.round; }); });
-
-    var period = 100, rankMode = 'top';
-
-    function render() {
-      var w = period ? draws.slice(-period) : draws, total = w.length, balls = total * 6;
-      var freq = {}, zone = [0, 0, 0, 0, 0], digit = {}, oe = {}, sumBins = [0, 0, 0], consec = [0, 0, 0];
-      for (var n = 1; n <= 45; n++) freq[n] = 0;
-      w.forEach(function (d) {
-        d.numbers.forEach(function (n) {
-          freq[n]++; digit[n % 10] = (digit[n % 10] || 0) + 1;
-          ZONES.forEach(function (z, i) { if (n >= z[0] && n <= z[1]) zone[i]++; });
-        });
-        var o = oddCount(d.numbers), k = o + ':' + (6 - o); oe[k] = (oe[k] || 0) + 1;
-        var s = sum(d.numbers);
-        if (s >= 100 && s <= 130) sumBins[0]++; else if (s >= 131 && s <= 160) sumBins[1]++; else if (s >= 161 && s <= 190) sumBins[2]++;
-        consec[Math.min(2, consecutivePairs(d.numbers))]++;
+  function initGenerate() {
+    var MAXF = 5, MAXX = 30;
+    var state = {}, mode = 'fix';
+    var board = $('#board'), html = '';
+    for (var n = 1; n <= 45; n++) html += '<button type="button" data-n="' + n + '">' + ball(n) + '</button>';
+    board.innerHTML = html;
+    function list(st) { return Object.keys(state).filter(function (k) { return state[k] === st; }).map(Number).sort(byNum); }
+    function paint() {
+      $$('button', board).forEach(function (b) {
+        var st = state[b.getAttribute('data-n')];
+        if (st) b.setAttribute('data-state', st); else b.removeAttribute('data-state');
+        b.setAttribute('aria-pressed', st ? 'true' : 'false');
+        b.setAttribute('aria-label', b.getAttribute('data-n') + '번' + (st === 'fix' ? ', 고정수' : st === 'exc' ? ', 제외수' : ''));
       });
-      var label = period ? '최근 ' + period + '회' : '전체 ' + total.toLocaleString('en-US') + '회';
-      if (el.subtitle) el.subtitle.textContent = label + ' 당첨번호 전수 집계';
-
-      // 과열 구간: 번호 비중이 가장 높은 구간
-      var hot = zone.indexOf(Math.max.apply(null, zone));
-      if (el.hotZone) el.hotZone.textContent = ZONES[hot][0] + '~' + ZONES[hot][1];
-      if (el.hotRate) el.hotRate.textContent = '출현 빈도 ' + pct(zone[hot], balls) + ' 기록';
-
-      // 최다 출현 / 장기 미출현 5선
-      var nums = Object.keys(freq).map(Number), rows;
-      if (rankMode === 'top') {
-        rows = nums.sort(function (a, b) { return freq[b] - freq[a] || a - b; }).slice(0, 5).map(function (n) {
-          return { n: n, text: freq[n] + '회 출현', v: freq[n] };
-        });
-      } else {
-        rows = nums.map(function (n) { return { n: n, gap: latest - (lastSeen[n] || 0) }; })
-          .sort(function (a, b) { return b.gap - a.gap || a.n - b.n; }).slice(0, 5).map(function (o) {
-            return { n: o.n, text: o.gap + '회째 미출현', v: o.gap };
-          });
-      }
-      var max = rows.length ? rows[0].v : 1;
-      el.rankRows.forEach(function (row, i) {
-        var r = rows[i]; if (!r) return;
-        var ps = $$('p', row), b = row.firstElementChild;
-        if (ballCls[range(r.n)]) b.className = ballCls[range(r.n)];
-        ps[0].textContent = pad(r.n); ps[1].textContent = pad(r.n) + '번\u00a0'; ps[2].textContent = r.text;
-        ps[3].textContent = pct(freq[r.n], total, 1);
-        setBar($('.u191 > div', row), max ? r.v / max * 0.9 : 0);
-      });
-
-      // 홀짝 비율 (홀:짝)
-      var oeKeys = ['3:3', '4:2', '2:4'], etc = total;
-      var oeMode = Object.keys(oe).sort(function (a, b) { return oe[b] - oe[a]; })[0] || '3:3';
-      if (el.oeMode) el.oeMode.textContent = '최빈 패턴 ' + oeMode;
-      oeKeys.concat('기타').forEach(function (k, i) {
-        var c = i < 3 ? (oe[k] || 0) : etc;
-        if (i < 3) etc -= c;
-        if (el.oePs[i * 2 + 1]) el.oePs[i * 2 + 1].textContent = pct(c, total);
-        if (el.oeBar[i]) el.oeBar[i].style.width = 'calc(' + pct(c, total, 2) + ' - 2px)';
-      });
-
-      // 총합 분포
-      var gold = sumBins.indexOf(Math.max.apply(null, sumBins));
-      if (el.sumGold) el.sumGold.textContent = '골든존 ' + ['100~130', '131~160', '161~190'][gold];
-      el.sumRows.forEach(function (row, i) {
-        var ps = $$('p', row);
-        ps[ps.length - 1].textContent = pct(sumBins[i], total);
-        setBar($('.u220 > div', row), total ? sumBins[i] / total : 0);
-      });
-
-      // 연속 번호 (2쌍 이상은 "2쌍 등장"에 포함)
-      el.consec.forEach(function (p, i) { if (p) p.textContent = pct(consec[i], total); });
-
-      // 강세 동끝수: 가장 많이 나온 끝수 2개
-      var top2 = Object.keys(digit).sort(function (a, b) { return digit[b] - digit[a] || a - b; }).slice(0, 2);
-      el.digits.forEach(function (p, i) { if (top2[i] != null) p.textContent = top2[i]; });
-      if (el.digitText && top2.length === 2) el.digitText.textContent = top2[0] + '끝수 & ' + top2[1] + '끝수 집중';
-
-      // 구간별 출현 비중
-      el.zoneRows.forEach(function (row, i) {
-        var ps = $$('p', row);
-        ps[ps.length - 1].textContent = pct(zone[i], balls);
-        setBar($('.u220 > div', row), balls ? zone[i] / balls : 0);
-        if (el.zoneHi) zoneParts(row).forEach(function (d, j) { d.className = el.zoneHi[i === hot ? 0 : 1][j]; });
-      });
-
-      if (el.ai) el.ai.textContent = '홀짝 ' + oeMode + ', 총합 ' + ['100~130', '131~160', '161~190'][gold] +
-        ', 최빈 ' + top2.join('/') + '끝수, ' + ZONES[hot][2] + ' 대역 가중치를 탑재한 필터링 엔진을 가동합니다.';
+      $('#pick-count').innerHTML = '고정수 <b class="num">' + list('fix').length + '</b>/' + MAXF + ' · 제외수 <b class="num">' + list('exc').length + '</b>/' + MAXX;
     }
+    board.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-n]'); if (!b) return;
+      var n = b.getAttribute('data-n');
+      if (state[n] === mode) delete state[n];
+      else {
+        if (list(mode).length >= (mode === 'fix' ? MAXF : MAXX)) { toast((mode === 'fix' ? '고정수는 최대 ' + MAXF : '제외수는 최대 ' + MAXX) + '개까지 고를 수 있습니다'); return; }
+        state[n] = mode;
+      }
+      paint();
+    });
+    $$('#mode button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        mode = b.getAttribute('data-mode');
+        $$('#mode button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      });
+    });
+    $('#reset').addEventListener('click', function () { state = {}; paint(); toast('고른 번호를 모두 지웠습니다'); });
+    paint();
 
-    groupHooks.period = function (sel) {
-      var m = sel.textContent.match(/최근 (\d+)회/); period = m ? +m[1] : 0; render();
-    };
-    groupHooks.rank = function (sel, els) { rankMode = els.indexOf(sel) === 0 ? 'top' : 'worst'; render(); };
-    render();
+    // 조건
+    $$('#odd .chip').forEach(function (c) {
+      c.addEventListener('click', function () { c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); });
+    });
+    $$('.switch').forEach(function (s) {
+      s.addEventListener('click', function () {
+        var on = s.getAttribute('aria-checked') !== 'true';
+        s.setAttribute('aria-checked', on ? 'true' : 'false');
+        var tgt = s.getAttribute('data-reveal'); if (tgt) $(tgt).hidden = !on;
+      });
+    });
+    var games = 5;
+    $$('#games button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        games = +b.getAttribute('data-g');
+        $$('#games button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        $('#gen-label').textContent = games + '게임 생성하기';
+      });
+    });
+    function on(id) { return $(id).getAttribute('aria-checked') === 'true'; }
+
+    var lastDraw = null;
+    loadDraws().then(function (draws) {
+      lastDraw = draws[draws.length - 1];
+      $('#last-nums').textContent = lastDraw.round + '회 번호 ' + lastDraw.numbers.join(', ') + '을(를) 빼고 뽑아요';
+    }).catch(function () { $('#last-nums').textContent = '데이터를 불러오지 못해 쓸 수 없어요'; });
+
+    var result = [];
+    $('#gen-btn').addEventListener('click', function () {
+      var excluded = list('exc');
+      if (on('#sw-last') && lastDraw) lastDraw.numbers.forEach(function (n) { if (excluded.indexOf(n) < 0 && state[n] !== 'fix') excluded.push(n); });
+      var opt = {
+        fixed: list('fix'), excluded: excluded,
+        odd: $$('#odd .chip[aria-pressed="true"]').map(function (c) { return +c.getAttribute('data-odd'); }),
+        noRun3: on('#sw-run'), noSameEnd3: on('#sw-end')
+      };
+      if (on('#sw-sum')) {
+        var a = parseInt($('#sum-min').value, 10), b = parseInt($('#sum-max').value, 10);
+        if (isNaN(a) || isNaN(b) || a > b) { toast('합계 범위를 확인해 주세요 (최소 ≤ 최대)'); return; }
+        opt.sumMin = a; opt.sumMax = b;
+      }
+      result = generate(games, opt);
+      var box = $('#result');
+      box.hidden = false;
+      $('#result-games').innerHTML = !result.length
+        ? '<p class="muted">조건을 모두 만족하는 조합을 찾지 못했어요. 고정수·제외수나 조건을 조금 풀어 보세요.</p>'
+        : gamesHTML(result, true) + (result.length < games ? '<p class="hint">조건이 까다로워 ' + result.length + '게임만 만들었어요.</p>' : '');
+      $('#result-actions').hidden = !result.length;
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    $('#result-games').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-save]'); if (b) addToVault([result[+b.getAttribute('data-save')]], '번호 생성');
+    });
+    $('#save-all').addEventListener('click', function () { if (result.length) addToVault(result, '번호 생성'); });
+    $('#copy-all').addEventListener('click', function () { if (result.length) copySets(result); });
+  }
+
+  /* =====================================================
+     통계
+     ===================================================== */
+  var ZONES = [[1, 10, '1~10', 'y'], [11, 20, '11~20', 'b'], [21, 30, '21~30', 'r'], [31, 40, '31~40', 'g'], [41, 45, '41~45', 'n']];
+  function vbarsHTML(items, total) {
+    var max = Math.max.apply(null, items.map(function (x) { return x[1]; })) || 1;
+    return '<div class="vbars' + (items.length > 8 ? ' dense' : '') + '">' + items.map(function (x) {
+      return '<div class="vbar' + (x[1] === max ? ' top' : '') + '"><em class="num">' + pct(x[1], total, 0) + '</em>' +
+        '<i style="height:' + (x[1] / max * 66).toFixed(1) + '%"></i><span>' + x[0] + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function barsHTML(items, total, scale) {
+    var max = scale || Math.max.apply(null, items.map(function (x) { return x[1]; })) || 1;
+    var top = Math.max.apply(null, items.map(function (x) { return x[1]; }));
+    return '<div class="bars">' + items.map(function (x) {
+      return '<div class="bar-row' + (x[1] === top ? ' top' : '') + '"><span class="lbl">' + x[0] + '</span>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + Math.min(100, x[1] / max * 100).toFixed(1) + '%"></div></div>' +
+        '<span class="val num">' + pct(x[1], total, 0) + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function initStats() {
+    var root = $('#stats-body');
+    loadDraws().then(function (draws) {
+      var latest = draws[draws.length - 1].round, period = 100, rankMode = 'hot', selected = null;
+      var lastSeen = {};
+      draws.forEach(function (d) { d.numbers.forEach(function (n) { lastSeen[n] = d.round; }); });
+      $('#stats-base').textContent = '1~' + latest + '회 데이터';
+
+      function render() {
+        var w = period ? draws.slice(-period) : draws, total = w.length, n;
+        var freq = {};
+        for (n = 1; n <= 45; n++) freq[n] = 0;
+        var odd = [0, 0, 0, 0, 0, 0, 0], sums = [0, 0, 0, 0, 0, 0], cons = [0, 0, 0], zones = [0, 0, 0, 0, 0], ends = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        w.forEach(function (d) {
+          d.numbers.forEach(function (x) {
+            freq[x]++; ends[x % 10]++;
+            ZONES.forEach(function (z, i) { if (x >= z[0] && x <= z[1]) zones[i]++; });
+          });
+          odd[oddCount(d.numbers)]++;
+          var s = sum(d.numbers);
+          sums[s < 100 ? 0 : s < 120 ? 1 : s < 140 ? 2 : s < 160 ? 3 : s < 180 ? 4 : 5]++;
+          cons[Math.min(2, consecutivePairs(d.numbers))]++;
+        });
+        var balls6 = total * 6, maxF = 0, minF = Infinity;
+        for (n = 1; n <= 45; n++) { maxF = Math.max(maxF, freq[n]); minF = Math.min(minF, freq[n]); }
+        if (selected == null) selected = +Object.keys(freq).sort(function (a, b) { return freq[b] - freq[a]; })[0];
+
+        // 번호별 출현 지도 (한 가지 색의 진하기 = 출현 횟수)
+        var heat = '';
+        for (n = 1; n <= 45; n++) {
+          var t = maxF > minF ? (freq[n] - minF) / (maxF - minF) : 0, mix = Math.round(6 + t * 94);
+          heat += '<button type="button" data-n="' + n + '" aria-pressed="' + (n === selected) + '" aria-label="' + n + '번, ' + freq[n] + '회 출현"' +
+            ' style="background:color-mix(in srgb, var(--heat-1) ' + mix + '%, var(--heat-0));' + (mix > 55 ? 'color:#fff' : '') + '">' + n + '</button>';
+        }
+        var gap = latest - (lastSeen[selected] || 0);
+        var sec = [];
+        sec.push('<section class="card"><div class="card-head"><div><h2 class="card-title">번호별 출현 횟수</h2><p class="card-sub">진할수록 많이 나온 번호예요. 번호를 눌러 자세히 보세요.</p></div></div>' +
+          '<div class="heat">' + heat + '</div>' +
+          '<div class="heat-scale"><span class="num">' + minF + '회</span><i></i><span class="num">' + maxF + '회</span></div>' +
+          '<div class="detail" aria-live="polite">' + ball(selected) + '<div><b>' + selected + '번 · ' + freq[selected] + '회 출현</b><br><span class="muted">' + total + '회 중 ' + pct(freq[selected], total) +
+          ' · ' + (gap ? '마지막 출현 ' + lastSeen[selected] + '회 (' + gap + '회 전)' : '지난 회차에 나왔어요') + '</span></div></div></section>');
+
+        // 순위
+        var nums = Object.keys(freq).map(Number), rows;
+        if (rankMode === 'hot') rows = nums.sort(function (a, b) { return freq[b] - freq[a] || a - b; }).slice(0, 5)
+          .map(function (x) { return [x, freq[x] + '회 출현', freq[x], pct(freq[x], total)]; });
+        else rows = nums.map(function (x) { return [x, latest - (lastSeen[x] || 0)]; }).sort(function (a, b) { return b[1] - a[1] || a[0] - b[0]; }).slice(0, 5)
+          .map(function (x) { return [x[0], x[1] + '회째 안 나옴', x[1], lastSeen[x[0]] + '회'] ; });
+        var rmax = rows[0][2] || 1;
+        sec.push('<section class="card"><div class="card-head"><h2 class="card-title">번호 순위 TOP 5</h2></div>' +
+          '<div class="seg" id="rank-seg" role="group" aria-label="순위 기준"><button type="button" data-r="hot" aria-pressed="' + (rankMode === 'hot') + '">많이 나온 번호</button>' +
+          '<button type="button" data-r="cold" aria-pressed="' + (rankMode === 'cold') + '">오래 안 나온 번호</button></div>' +
+          '<ol class="rank" style="margin-top:14px">' + rows.map(function (r) {
+            return '<li>' + ball(r[0], 'sm') + '<div class="info"><b>' + r[0] + '번</b> <small style="display:inline">· ' + r[1] + '</small>' +
+              '<div class="bar-track"><div class="bar-fill" style="width:' + (r[2] / rmax * 100).toFixed(1) + '%"></div></div></div><span class="muted num">' + r[3] + '</span></li>';
+          }).join('') + '</ol>' +
+          (rankMode === 'cold' ? '<p class="hint" style="margin-top:12px">오래 안 나온 번호는 기간 선택과 상관없이 전체 회차 기준이에요. 오른쪽은 마지막으로 나온 회차예요.</p>' : '') + '</section>');
+
+        // 번호대별 비중 (막대 길이 = 비율, 최대 30% 눈금)
+        sec.push('<section class="card"><div class="card-head"><div><h2 class="card-title">번호대별 비중</h2><p class="card-sub">공 색깔 구간마다 나온 번호의 비율</p></div></div>' +
+          barsHTML(ZONES.map(function (z, i) {
+            return ['<span class="ball ' + z[3] + '" style="--s:12px;font-size:0;vertical-align:-1px;margin-right:6px"></span>' + z[2], zones[i]];
+          }), balls6, balls6 * 0.3) +
+          '<p class="hint" style="margin-top:10px">완전히 무작위라면 1~40은 각 22.2%, 41~45는 11.1%가 기대값이에요.</p></section>');
+
+        sec.push('<section class="card"><div class="card-head"><div><h2 class="card-title">홀짝 비율</h2><p class="card-sub">한 회차의 홀수:짝수 개수별 비율</p></div></div>' +
+          vbarsHTML(odd.map(function (c, i) { return [i + ':' + (6 - i), c]; }), total) + '</section>');
+        sec.push('<section class="card"><div class="card-head"><div><h2 class="card-title">번호 합계 분포</h2><p class="card-sub">당첨번호 6개를 더한 값</p></div></div>' +
+          vbarsHTML([['~99', sums[0]], ['100~', sums[1]], ['120~', sums[2]], ['140~', sums[3]], ['160~', sums[4]], ['180~', sums[5]]], total) + '</section>');
+        sec.push('<section class="card"><div class="card-head"><div><h2 class="card-title">연속 번호</h2><p class="card-sub">12·13처럼 이어지는 번호가 있었던 회차</p></div></div>' +
+          barsHTML([['없음', cons[0]], ['1쌍', cons[1]], ['2쌍 이상', cons[2]]], total) + '</section>');
+        sec.push('<section class="card"><div class="card-head"><div><h2 class="card-title">끝자리 분포</h2><p class="card-sub">당첨번호의 일의 자리별 비율</p></div></div>' +
+          vbarsHTML(ends.map(function (c, i) { return [String(i), c]; }), balls6) + '</section>');
+        root.innerHTML = sec.join('');
+
+        $$('#rank-seg button', root).forEach(function (b) { b.addEventListener('click', function () { rankMode = b.getAttribute('data-r'); render(); }); });
+        $$('.heat button', root).forEach(function (b) {
+          b.addEventListener('click', function () { selected = +b.getAttribute('data-n'); render(); var f = $('.heat button[data-n="' + selected + '"]', root); if (f) f.focus(); });
+        });
+      }
+      $$('#period button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          period = +b.getAttribute('data-p');
+          $$('#period button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+          render();
+        });
+      });
+      render();
+    }).catch(function () { loadError(root); });
+  }
+
+  /* =====================================================
+     당첨 조회 (회차별 결과 + 내 번호 맞춰보기)
+     ===================================================== */
+  function initCheck() {
+    var draws = [], cur = 0;
+    function showTab(name) {
+      $$('#check-tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
+      $('#tab-round').hidden = name !== 'round';
+      $('#tab-mine').hidden = name !== 'mine';
+      try { history.replaceState(null, '', name === 'mine' ? '#mine' : location.pathname); } catch (e) {}
+    }
+    $$('#check-tabs button').forEach(function (b) { b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); }); });
+    showTab(location.hash === '#mine' ? 'mine' : 'round');
+
+    // 회차별 결과
+    function renderRound() {
+      var d = draws[cur];
+      $('#round-input').value = d.round;
+      $('#prev-round').disabled = cur === 0;
+      $('#next-round').disabled = cur === draws.length - 1;
+      var rows = [1, 2, 3, 4, 5].map(function (r) {
+        var cond = ['6개 일치', '5개+보너스', '5개 일치', '4개 일치', '3개 일치'][r - 1];
+        var amt = d.prizes ? d.prizes[r - 1] : r === 1 ? d.firstPrize : null, cnt = d.winners ? d.winners[r - 1] : r === 1 ? d.firstWinners : null;
+        return '<tr><td><b>' + r + '등</b><br><span class="muted">' + cond + '</span></td><td class="num prize">' + (amt != null ? comma(amt) + '원' : '-') + '</td><td class="num">' + (cnt != null ? comma(cnt) + '명' : '-') + '</td></tr>';
+      }).join('');
+      $('#round-card').innerHTML =
+        '<div class="card-head"><div><p class="card-sub">' + fmtDate(d.date, true) + ' 추첨</p><h2 class="card-title" style="font-size:20px">제 ' + d.round + '회</h2></div>' +
+        (cur === draws.length - 1 ? '<span class="badge wait">최신 회차</span>' : '') + '</div>' +
+        balls(d.numbers, { bonus: d.bonus, nowrap: true }) +
+        '<table class="table" style="margin-top:16px"><thead><tr><th>등수</th><th>1인당 당첨금</th><th>당첨자</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+        '<p class="muted" style="margin-top:10px">총 판매액 <span class="num">' + won(d.totalSales) + '</span></p>';
+      $('#recent').innerHTML = draws.slice(Math.max(0, draws.length - 10)).reverse().map(function (x, i) {
+        var idx = draws.length - 1 - i;
+        return '<button type="button" class="draw-item" data-i="' + idx + '"' + (idx === cur ? ' aria-current="true"' : '') + '><span class="rd"><b class="num">' + x.round + '회</b><small class="num">' + x.date.slice(5).replace('-', '.') + '</small></span>' +
+          balls(x.numbers, { size: 'sm', nowrap: true }) + '</button>';
+      }).join('');
+    }
+    function go(i) { cur = Math.max(0, Math.min(draws.length - 1, i)); renderRound(); }
+    $('#prev-round').addEventListener('click', function () { go(cur - 1); });
+    $('#next-round').addEventListener('click', function () { go(cur + 1); });
+    $('#round-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var r = parseInt($('#round-input').value, 10);
+      if (!(r >= 1 && r <= draws.length)) { toast('1~' + draws.length + '회 사이로 입력해 주세요'); return; }
+      go(r - 1);
+    });
+    $('#recent').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-i]'); if (!b) return;
+      go(+b.getAttribute('data-i')); $('#round-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    // 내 번호 맞춰보기
+    var picked = [], board = $('#pick-board'), html = '';
+    for (var n = 1; n <= 45; n++) html += '<button type="button" data-n="' + n + '" aria-pressed="false" aria-label="' + n + '번">' + ball(n) + '</button>';
+    board.innerHTML = html;
+    function paintPick() {
+      $$('button', board).forEach(function (b) {
+        var on = picked.indexOf(+b.getAttribute('data-n')) >= 0;
+        if (on) b.setAttribute('data-state', 'pick'); else b.removeAttribute('data-state');
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      board.classList.toggle('board-dim', picked.length === 6);
+      $('#pick-status').textContent = picked.length === 6 ? '6개를 모두 골랐어요' : picked.length + ' / 6개 선택';
+      $('#run-check').disabled = picked.length !== 6;
+    }
+    board.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-n]'); if (!b) return;
+      var x = +b.getAttribute('data-n'), i = picked.indexOf(x);
+      if (i >= 0) picked.splice(i, 1);
+      else if (picked.length < 6) picked.push(x);
+      else { toast('6개까지 고를 수 있어요. 바꿀 번호를 먼저 눌러 빼 주세요'); return; }
+      paintPick();
+    });
+    $('#pick-random').addEventListener('click', function () { picked = generate(1)[0]; paintPick(); });
+    $('#pick-clear').addEventListener('click', function () { picked = []; paintPick(); $('#check-result').hidden = true; });
+    var vault = loadVault(), sel = $('#pick-vault');
+    if (vault.length) {
+      sel.innerHTML = '<option value="">보관함에서 불러오기 (' + vault.length + '개)</option>' + vault.map(function (o, i) {
+        return '<option value="' + i + '">' + o.nums.map(pad).join(' ') + (o.label ? ' · ' + esc(o.label) : '') + '</option>';
+      }).join('');
+      sel.addEventListener('change', function () { if (sel.value !== '') { picked = vault[+sel.value].nums.slice(); paintPick(); } });
+    } else sel.hidden = true;
+    paintPick();
+
+    $('#run-check').addEventListener('click', function () {
+      var nums = picked.slice().sort(byNum), counts = [0, 0, 0, 0, 0, 0], prize = 0, best = null, hasAll = true;
+      draws.forEach(function (d) {
+        var r = rankOf(nums, d);
+        counts[r]++;
+        if (r) {
+          prize += prizeOf(r, d);
+          if (!d.prizes && (r === 2 || r === 3)) hasAll = false;
+          if (!best || r < best.rank || (r === best.rank && d.round > best.d.round)) best = { rank: r, d: d };
+        }
+      });
+      var spent = draws.length * 1000, rate = prize / spent * 100, box = $('#check-result');
+      box.hidden = false;
+      box.innerHTML =
+        '<div class="card-head"><div><h2 class="card-title">1~' + draws.length + '회 전체에 맞춰본 결과</h2><p class="card-sub">매주 같은 번호로 1게임(1,000원)씩 샀다고 가정</p></div></div>' +
+        balls(nums, { nowrap: true }) +
+        '<div class="tiles" style="margin-top:14px">' +
+        '<div class="tile"><span>총 구입액</span><b class="num">' + won(spent) + '</b></div>' +
+        '<div class="tile"><span>총 당첨금</span><b class="num prize">' + won(prize) + '</b></div>' +
+        '<div class="tile"><span>회수율</span><b class="num ' + (rate >= 100 ? 'win' : 'loss') + '">' + rate.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '%</b></div>' +
+        '<div class="tile"><span>당첨 횟수</span><b class="num">' + (draws.length - counts[0]) + '회</b></div></div>' +
+        '<table class="table" style="margin-top:14px"><thead><tr><th>등수</th><th>횟수</th></tr></thead><tbody>' +
+        [1, 2, 3, 4, 5].map(function (r) { return '<tr><td>' + r + '등</td><td class="num">' + counts[r] + '회</td></tr>'; }).join('') +
+        '<tr><td>낙첨</td><td class="num">' + counts[0] + '회</td></tr></tbody></table>' +
+        (best ? '<hr class="divider"><p class="group-label" style="margin-top:0">가장 좋은 기록 · ' + best.d.round + '회 ' + RANK_TEXT[best.rank] + '</p>' +
+          balls(best.d.numbers, { bonus: best.d.bonus, size: 'sm', nowrap: true, hits: hitsOf(nums, best.d) }) +
+          '<p class="hint" style="margin-top:6px">' + fmtDate(best.d.date) + ' 추첨 · 당첨금 ' + comma(prizeOf(best.rank, best.d)) + '원</p>'
+          : '<p class="muted" style="margin-top:12px">3개 이상 맞은 회차가 한 번도 없어요.</p>') +
+        (hasAll ? '' : '<p class="hint" style="margin-top:8px">일부 회차는 2·3등 당첨금 정보가 없어 합계에서 빠졌어요.</p>') +
+        '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="save-checked">' + icon('save') + '이 번호 저장</button></div>';
+      $('#save-checked').addEventListener('click', function () { addToVault([nums], '당첨 조회'); });
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    loadDraws().then(function (d) { draws = d; go(d.length - 1); $('#all-count').textContent = d.length; })
+      .catch(function () { loadError($('#round-card')); });
   }
 
   /* =====================================================
      보관함
      ===================================================== */
   function initVault() {
-    var list = $('#vault-list'), empty = $('#vault-empty'), clear = $('#vault-clear');
+    var listEl = $('#vault-list'), draws = null;
     function draw() {
       var v = loadVault();
-      empty.hidden = v.length > 0; clear.hidden = !v.length;
-      list.innerHTML = v.map(function (o, i) {
-        var d = new Date(o.at), ds = isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-        return '<li class="v-item"><div class="v-top"><span class="v-tag">' + (o.label || '저장') + '</span><span class="v-date">' + ds + '</span>' +
-          '<button type="button" class="v-del" data-i="' + i + '" aria-label="삭제">삭제</button></div><div class="v-balls">' + ballsHTML(o.nums) + '</div></li>';
-      }).join('');
+      $('#vault-empty').hidden = v.length > 0;
+      $('#vault-tools').hidden = !v.length;
+      $('#vault-count').textContent = v.length + '게임';
+      if (!v.length) { listEl.innerHTML = ''; return; }
+      if (!draws) { listEl.innerHTML = '<div class="skeleton" style="height:140px"></div>'; return; }
+      var rows = v.map(function (o) { return vaultResult(o, draws); });
+      var wins = rows.filter(function (r) { return r.rank; }).length, checked = rows.filter(function (r) { return r.draw; }).length;
+      $('#vault-summary').textContent = checked ? '결과가 나온 ' + checked + '게임 중 ' + wins + '게임 당첨' : '아직 결과가 나온 게임이 없어요';
+      listEl.innerHTML = '<div class="games">' + rows.map(function (r, i) { return vaultRowHTML(r, i, true); }).join('') + '</div>';
     }
-    list.addEventListener('click', function (e) {
-      var b = e.target.closest('.v-del'); if (!b) return;
-      var v = loadVault(); v.splice(parseInt(b.getAttribute('data-i'), 10), 1); saveVault(v); draw();
+    listEl.addEventListener('click', function (e) {
+      var v = loadVault(), c = e.target.closest('[data-copy]'), d = e.target.closest('[data-del]');
+      if (c) copySets([v[+c.getAttribute('data-copy')].nums]);
+      if (d) { v.splice(+d.getAttribute('data-del'), 1); saveVault(v); draw(); toast('삭제했습니다'); }
     });
-    clear.addEventListener('click', function () { saveVault([]); draw(); });
+    $('#vault-clear').addEventListener('click', function () {
+      if (window.confirm('저장한 번호를 모두 지울까요? 되돌릴 수 없습니다.')) { saveVault([]); draw(); toast('모두 지웠습니다'); }
+    });
+    $('#vault-copy').addEventListener('click', function () { copySets(loadVault().map(function (o) { return o.nums; })); });
     draw();
+    loadDraws().then(function (d) { draws = d; draw(); })
+      .catch(function () { listEl.innerHTML = '<p class="muted">당첨 데이터를 불러오지 못해 결과를 확인할 수 없어요.</p>'; });
   }
 
   /* ---------- 시작 ---------- */
-  initActions();
-  initGroups();
-  initLatest();
+  initShell();
   if (page === 'index') initHome();
-  if (page === 'combiner') initCombiner();
-  if (page === 'simulator') initSimulator();
+  if (page === 'combiner') initGenerate();
+  if (page === 'stats') initStats();
+  if (page === 'simulator') initCheck();
   if (page === 'vault') initVault();
 })();
