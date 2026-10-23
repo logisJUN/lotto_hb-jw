@@ -137,7 +137,21 @@
     var today = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
     var d = Date.parse(last.date) + 7 * DAY, round = last.round + 1;
     while (d < today) { d += 7 * DAY; round++; }
-    return { round: round, days: Math.round((d - today) / DAY) };
+    // 추첨 시각: 토요일 20:35(KST) = 11:35(UTC)
+    return { round: round, days: Math.round((d - today) / DAY), at: d + (11 * 60 + 35) * 6e4 };
+  }
+  // 홈의 "D-2 18:32:44" 카운트다운을 다음 추첨 시각까지 1초마다 갱신합니다.
+  function startCountdown(at) {
+    var el = $$('p').filter(function (p) { return /^D-\d+ \d\d:\d\d:\d\d$/.test(p.textContent); })[0];
+    if (!el) return;
+    function tick() {
+      var s = Math.floor((at - Date.now()) / 1000);
+      if (s < 0) { el.textContent = '추첨 결과 집계 중'; return; }
+      var d = Math.floor(s / 86400);
+      el.textContent = 'D-' + d + ' ' + pad(Math.floor(s / 3600) % 24) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+      setTimeout(tick, 1000 - Date.now() % 1000);
+    }
+    tick();
   }
   // 시안에 적힌 회차(1115 = 다음 회차, 1114 = 지난 회차)를 실제 회차로 바꿉니다.
   function roundText(t, from, to) {
@@ -177,7 +191,7 @@
           var u = roundText(roundText(t, 1115, next.round), 1114, last.round);
           if (u !== t) p.textContent = u;
         });
-        if (page === 'index') paintLastDraw(last);
+        if (page === 'index') { paintLastDraw(last); startCountdown(next.at); }
       })
       .catch(function () {});
   }
