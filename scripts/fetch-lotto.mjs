@@ -1,5 +1,5 @@
 // 동행복권에서 역대 로또 당첨번호를 받아 data/lotto.json에 추가합니다.
-// 파일에 있는 마지막 회차 다음부터, 아직 추첨하지 않은 회차가 나올 때까지 받습니다.
+// 파일에 있는 마지막 회차 다음부터 최신 회차까지 한 번에 받습니다.
 // 실행: node scripts/fetch-lotto.mjs
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -7,8 +7,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DATA_FILE = resolve(dirname(fileURLToPath(import.meta.url)), '../data/lotto.json');
-const API = 'https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo=';
-const DELAY_MS = 150;
+// 회차 범위를 주면 그 범위의 당첨 결과를 최신 회차부터 돌려줍니다.
+// 아직 추첨하지 않은 회차는 결과에 빠집니다.
+const API = 'https://www.dhlottery.co.kr/lt645/selectPstLt645Info.do';
 const RETRIES = 3;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,12 +23,12 @@ async function loadDraws() {
   }
 }
 
-// 회차 하나를 받습니다. 아직 추첨 전이면 null을 돌려줍니다.
-async function fetchDraw(round) {
+async function fetchRange(from, to) {
+  const url = `${API}?srchStrLtEpsd=${from}&srchEndLtEpsd=${to}`;
   let lastErr;
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {
-      const res = await fetch(API + round, {
+      const res = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; lotto-data-bot)',
           Accept: 'application/json',
@@ -35,31 +36,35 @@ async function fetchDraw(round) {
       });
       const text = await res.text();
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-
-      let d;
       try {
-        d = JSON.parse(text);
+        return JSON.parse(text).data.list;
       } catch {
-        // 점검 중이거나 접속이 막히면 JSON 대신 HTML 페이지가 옵니다.
-        throw new Error(`JSON이 아닌 응답: ${text.slice(0, 200).replace(/\s+/g, ' ')}`);
+        // 주소가 바뀌거나 접속이 막히면 JSON 대신 HTML 페이지가 옵니다.
+        throw new Error(`예상과 다른 응답 (${res.url}): ${text.slice(0, 200).replace(/\s+/g, ' ')}`);
       }
-
-      if (d.returnValue !== 'success') return null;
-      return {
-        round: d.drwNo,
-        date: d.drwNoDate,
-        numbers: [d.drwtNo1, d.drwtNo2, d.drwtNo3, d.drwtNo4, d.drwtNo5, d.drwtNo6],
-        bonus: d.bnusNo,
-        firstPrize: d.firstWinamnt,
-        firstWinners: d.firstPrzwnerCo,
-        totalSales: d.totSellamnt,
-      };
     } catch (err) {
       lastErr = err;
-      if (attempt < RETRIES) await sleep(2000 * attempt);
+      if (attempt < RETRIES) await sleep(3000 * attempt);
     }
   }
-  throw new Error(`${round}회 조회 실패: ${lastErr.message}`);
+  throw new Error(`${from}~${to}회 조회 실패: ${lastErr.message}`);
+}
+
+function toDraw(d) {
+  const draw = {
+    round: d.ltEpsd,
+    date: `${d.ltRflYmd.slice(0, 4)}-${d.ltRflYmd.slice(4, 6)}-${d.ltRflYmd.slice(6, 8)}`,
+    numbers: [d.tm1WnNo, d.tm2WnNo, d.tm3WnNo, d.tm4WnNo, d.tm5WnNo, d.tm6WnNo],
+    bonus: d.bnsWnNo,
+    firstPrize: d.rnk1WnAmt,
+    firstWinners: d.rnk1WnNope,
+    totalSales: d.wholEpsdSumNtslAmt,
+  };
+  const balls = [...draw.numbers, draw.bonus];
+  if (!balls.every((n) => Number.isInteger(n) && n >= 1 && n <= 45) || new Set(balls).size !== 7) {
+    throw new Error(`${draw.round}회 번호가 올바르지 않습니다: ${JSON.stringify(d)}`);
+  }
+  return draw;
 }
 
 // 회차 하나를 한 줄로 써서, 매주 변경 내역이 한 줄 추가로 보이게 합니다.
@@ -69,18 +74,13 @@ function serialize(draws) {
 
 const draws = await loadDraws();
 const start = draws.length ? draws[draws.length - 1].round + 1 : 1;
-const added = [];
+const added = (await fetchRange(start, start + 10000)).map(toDraw).sort((a, b) => a.round - b.round);
 
-for (let round = start; ; round++) {
-  const draw = await fetchDraw(round);
-  if (!draw) break;
-  added.push(draw);
-  if (added.length % 100 === 0) console.log(`${round}회까지 받음`);
-  await sleep(DELAY_MS);
-}
-
+added.forEach((d, i) => {
+  if (d.round !== start + i) throw new Error(`회차가 빠져 있습니다: ${start + i}회 자리에 ${d.round}회`);
+});
 if (start === 1 && added.length === 0) {
-  throw new Error('1회차도 받지 못했습니다. API 응답 형식이 바뀌었는지 확인하세요.');
+  throw new Error('당첨번호를 하나도 받지 못했습니다. API 응답 형식이 바뀌었는지 확인하세요.');
 }
 
 if (added.length === 0) {

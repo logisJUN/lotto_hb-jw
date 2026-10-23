@@ -47,7 +47,7 @@ js/app.js       인터랙션
 - 사이트에서는 `fetch('data/lotto.json')`으로 읽습니다. 형식은 회차당 한 줄입니다.
 
 ```json
-{"round":1100,"date":"2023-12-30","numbers":[17,26,29,30,31,43],"bonus":12,"firstPrize":2640847625,"firstWinners":9,"totalSales":115838524000}
+{"round":1100,"date":"2023-12-30","numbers":[17,26,29,30,31,43],"bonus":12,"firstPrize":2207575472,"firstWinners":13,"totalSales":116187023000}
 ```
 
 예약 실행은 기본 브랜치(`main`)에 있는 워크플로만 동작합니다.
