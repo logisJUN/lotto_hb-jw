@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#051424">
+<meta name="description" content="로또랩 - AI 번호 추천, 통계 분석, 번호 조합기, 역대 당첨 시뮬레이터">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234f46e5'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
+<title>로또랩 - 빅데이터 통계 분석</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="stats">
+<div class="app">
+  <header class="app-header">
+    <div class="hd-row">
+      <a class="hd-brand" href="index.html">
+        <span class="hd-logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#03b5d3"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><circle cx="16" cy="17" r="8" fill="#fff" fill-opacity=".18"/><path d="M13 9h6v3.2l3.4 6.3c.5 1-.2 2.2-1.3 2.2H10.9c-1.1 0-1.8-1.2-1.3-2.2L13 12.2V9z" fill="#fff"/><circle cx="14.2" cy="18.2" r="1.3" fill="#4f46e5"/><circle cx="18.2" cy="16.6" r="1.1" fill="#03b5d3"/></svg></span>
+        <span class="hd-text"><span class="hd-name">로또랩</span><span class="hd-round"><i></i>제 1115회차 D-2</span></span>
+      </a>
+      <div class="hd-actions">
+        <button class="hd-bell" type="button" aria-label="알림 목록"><svg viewBox="0 0 24 24" width="14.667" height="18.333" fill="currentColor" aria-hidden="true"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg><i class="hd-dot"></i></button>
+        <span class="hd-avatar"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
+      </div>
+    </div>
+  </header>
+  <main class="page">
+    <div class="u1">
+      <div class="u150">
+        <div class="u151">
+          <div class="u23">
+            <div class="u121">
+              <div class="u152"></div>
+              <div class="u12">
+                <div class="u153">
+                  <p class="u20">MONTE-CARLO DATA ENGINE</p>
+                </div>
+              </div>
+            </div>
+            <div class="u121">
+              <div class="u154">
+                <svg class="u11" viewBox="0 0 24 24" fill="#c7c4d8" aria-hidden="true"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+              </div>
+              <div class="u50">
+                <p class="u14">1114회 기준 갱신</p>
+              </div>
+            </div>
+          </div>
+          <div class="u155">
+            <div class="u156">
+              <div class="u157" data-grp="period">
+                <div class="u158">
+                  <p class="u20">전체 (1~1114회)</p>
+                </div>
+              </div>
+              <div class="u159" data-grp="period" data-sel="1">
+                <div class="u55"></div>
+                <div class="u160">
+                  <p class="u20">최근 100회</p>
+                </div>
+              </div>
+              <div class="u161" data-grp="period">
+                <div class="u158">
+                  <p class="u20">최근 50회</p>
+                </div>
+              </div>
+              <div class="u162" data-grp="period">
+                <div class="u158">
+                  <p class="u20">최근 10회</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="u163">
+          <div class="u164">
+            <div class="u165">
+              <div class="u8">
+                <div class="u166">
+                  <svg class="u11" viewBox="0 0 24 24" fill="#ffb4ab" aria-hidden="true"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>
+                </div>
+                <div class="u12">
+                  <div class="u50">
+                    <p class="u14">과열 구간(Hot)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="u167">
+              <div class="u168">
+                <p class="u35">11~20</p>
+              </div>
+              <div class="u169">
+                <p class="u14">구간</p>
+              </div>
+            </div>
+            <div class="u170">
+              <div class="u15">
+                <div class="u124">
+                  <p class="u20">출현 빈도 24% 기록</p>
+                </div>
+              </div>
+            </div>
+            <div class="u171"></div>
+          </div>
+        </div>
+        <div class="u21">
+          <div class="u172"></div>
+          <div class="u74">
+            <div class="u99">
+              <div class="u173">
+                <div class="u174">
+                  <svg class="u11" viewBox="0 0 24 24" fill="#4cd7f6" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+                </div>
+              </div>
+              <div class="u12">
+                <div class="u15">
+                  <div class="u16">
+                    <p class="u17">누적 출현 빈도</p>
+                  </div>
+                </div>
+                <div class="u15">
+                  <div class="u18">
+                    <p class="u20">최근 100회 당첨번호 전수 집계</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="u175">
+              <div class="u50">
+                <p class="u14">상/하위 5선</p>
+              </div>
+            </div>
+          </div>
+          <div class="u176">
+            <div class="u177">
+              <div class="u178" data-grp="rank" data-sel="1">
+                <div class="u55"></div>
+                <div class="u146">
+                  <p class="u20">최다 출현 (TOP 5)</p>
+                </div>
+              </div>
+              <div class="u179" data-grp="rank">
+                <div class="u180"></div>
+                <div class="u158">
+                  <p class="u20">장기 미출현 (WORST 5)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="u181">
+            <div class="u182">
+              <div class="u183">
+                <div class="u184"></div>
+                <div class="u185">
+                  <p class="u20">34</p>
+                </div>
+              </div>
+              <div class="u186">
+                <div class="u23">
+                  <div class="u187">
+                    <div class="u188">
+                      <p class="u20">34번 </p>
+                    </div>
+                    <div class="u189">
+                      <p class="u14">18회 출현</p>
+                    </div>
+                  </div>
+                  <div class="u12">
+                    <div class="u75">
+                      <p class="u14">18.0%</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="u190">
+                  <div class="u191">
+                    <div class="u192"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="u182">
+              <div class="u193">
+                <div class="u184"></div>
+                <div class="u185">
+                  <p class="u20">12</p>
+                </div>
+              </div>
+              <div class="u186">
+                <div class="u23">
+                  <div class="u187">
+                    <div class="u194">
+                      <p class="u20">12번 </p>
+                    </div>
+                    <div class="u189">
+                      <p class="u14">16회 출현</p>
+                    </div>
+                  </div>
+                  <div class="u12">
+                    <div class="u50">
+                      <p class="u14">16.0%</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="u190">
+                  <div class="u191">
+                    <div class="u195"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="u182">
+              <div class="u196">
+                <div class="u184"></div>
+                <div class="u185">
+                  <p class="u20">27</p>
+                </div>
+              </div>
+              <div class="u186">
+                <div class="u23">
+                  <div class="u187">
+                    <div class="u194">
+                      <p class="u20">27번 </p>
+                    </div>
+                    <div class="u189">
+                      <p class="u14">15회 출현</p>
+                    </div>
+                  </div>
+                  <div class="u12">
+                    <div class="u50">
+                      <p class="u14">15.0%</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="u190">
+                  <div class="u191">
+                    <div class="u197"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="u182">
+              <div class="u198">
+                <div class="u184"></div>
+                <div class="u185">
+                  <p class="u20">43</p>
+                </div>
+              </div>
+              <div class="u186">
+                <div class="u23">
+                  <div class="u187">
+                    <div class="u194">
+                      <p class="u20">43번 </p>
+                    </div>
+                    <div class="u189">
+                      <p class="u14">15회 출현</p>
+                    </div>
+                  </div>
+                  <div class="u12">
+                    <div class="u50">
+                      <p class="u14">15.0%</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="u190">
+                  <div class="u191">
+                    <div class="u197"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="u182">
+              <div class="u199">
+                <div class="u184"></div>
+                <div class="u185">
+                  <p class="u20">01</p>
+                </div>
+              </div>
+              <div class="u186">
+                <div class="u23">
+                  <div class="u187">
+                    <div class="u194">
+                      <p class="u20">01번 </p>
+                    </div>
+                    <div class="u189">
+                      <p class="u14">14회 출현</p>
+                    </div>
+                  </div>
+                  <div class="u12">
+                    <div class="u50">
+                      <p class="u14">14.0%</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="u190">
+                  <div class="u191">
+                    <div class="u200"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="u21">
+          <div class="u172"></div>
+          <div class="u201">
+            <div class="u173">
+              <div class="u49">
+                <svg class="u11" viewBox="0 0 24 24" fill="#c3c0ff" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+              </div>
+            </div>
+            <div class="u12">
+              <div class="u15">
+                <div class="u16">
+                  <p class="u17">패턴 심층 분석 매트릭스</p>
+                </div>
+              </div>
+              <div class="u15">
+                <div class="u18">
+                  <p class="u20">다차원 회귀분석 및 구조 검증</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="u202">
+            <div class="u23">
+              <div class="u24">
+                <div class="u66">
+                  <svg class="u11" viewBox="0 0 24 24" fill="#c3c0ff" aria-hidden="true"><path d="M9.01 14H2v2h7.01v3L13 15l-3.99-4v3zm5.98-1v-3H22V8h-7.01V5L11 9l3.99 4z"/></svg>
+                </div>
+                <div class="u26">
+                  <p class="u20">홀짝(Odd/Even) 비율</p>
+                </div>
+              </div>
+              <div class="u12">
+                <div class="u75">
+                  <p class="u14">최빈 패턴 3:3</p>
+                </div>
+              </div>
+            </div>
+            <div class="u203">
+              <div class="u204"></div>
+              <div class="u205"></div>
+              <div class="u206"></div>
+              <div class="u207"></div>
+            </div>
+            <div class="u208">
+              <div class="u209">
+                <div class="u210">
+                  <p class="u14">3:3</p>
+                </div>
+                <div class="u211">
+                  <p class="u20">38%</p>
+                </div>
+              </div>
+              <div class="u209">
+                <div class="u212">
+                  <p class="u14">4:2</p>
+                </div>
+                <div class="u211">
+                  <p class="u20">24%</p>
+                </div>
+              </div>
+              <div class="u209">
+                <div class="u213">
+                  <p class="u14">2:4</p>
+                </div>
+                <div class="u211">
+                  <p class="u20">21%</p>
+                </div>
+              </div>
+              <div class="u214">
+                <div class="u215">
+                  <p class="u14">기타</p>
+                </div>
+                <div class="u216">
+                  <p class="u20">17%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="u202">
+            <div class="u23">
+              <div class="u24">
+                <div class="u217">
+                  <svg class="u11" viewBox="0 0 24 24" fill="#c7c4d8" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+                </div>
+                <div class="u26">
+                  <p class="u20">총합(Sum) 분포 히스토그램</p>
+                </div>
+              </div>
+              <div class="u12">
+                <div class="u122">
+                  <p class="u14">골든존 131~160</p>
+                </div>
+              </div>
+            </div>
+            <div class="u151">
+              <div class="u218">
+                <div class="u219">
+                  <div class="u50">
+                    <p class="u14">100~130</p>
+                  </div>
+                </div>
+                <div class="u220">
+                  <div class="u221"></div>
+                </div>
+                <div class="u222">
+                  <div class="u62">
+                    <p class="u14">25%</p>
+                  </div>
+                </div>
+              </div>
+              <div class="u218">
+                <div class="u219">
+                  <div class="u223">
+                    <p class="u14">131~160</p>
+                  </div>
+                </div>
+                <div class="u220">
+                  <div class="u224"></div>
+                </div>
+                <div class="u222">
+                  <div class="u225">
+                    <p class="u14">48%</p>
+                  </div>
+                </div>
+              </div>
+              <div class="u218">
+                <div class="u219">
+                  <div class="u50">
+                    <p class="u14">161~190</p>
+                  </div>
+                </div>
+                <div class="u220">
+                  <div class="u226"></div>
+                </div>
+                <div class="u222">
+                  <div class="u62">
+                    <p class="u14">21%</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="u227">
+            <div class="u228">
+              <div class="u90">
+                <div class="u229">
+                  <svg class="u11" viewBox="0 0 24 24" fill="#c3c0ff" aria-hidden="true"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+                </div>
+                <div class="u26">
+                  <p class="u20">연속 번호율</p>
+                </div>
+              </div>
+              <div class="u230">
+                <div class="u231">
+                  <div class="u232">
+                    <div class="u233">
+                      <p class="u20">1쌍 등장</p>
+                    </div>
+                    <div class="u234">
+                      <p class="u20">54%</p>
+                    </div>
+                  </div>
+                  <div class="u235">
+                    <div class="u236">
+                      <p class="u20">연속 없음</p>
+                    </div>
+                    <div class="u237">
+                      <p class="u14">40%</p>
+                    </div>
+                  </div>
+                  <div class="u235">
+                    <div class="u236">
+                      <p class="u20">2쌍 등장</p>
+                    </div>
+                    <div class="u237">
+                      <p class="u14">6%</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="u238">
+                <div class="u58">
+                  <p class="u239">연속 1쌍 기본 채택</p>
+                  <p class="u14">권장</p>
+                </div>
+              </div>
+            </div>
+            <div class="u240">
+              <div class="u90">
+                <div class="u241">
+                  <svg class="u11" viewBox="0 0 24 24" fill="#4cd7f6" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+                </div>
+                <div class="u26">
+                  <p class="u20">강세 동끝수</p>
+                </div>
+              </div>
+              <div class="u230">
+                <div class="u242">
+                  <div class="u99">
+                    <div class="u243">
+                      <div class="u244">
+                        <p class="u35">3</p>
+                      </div>
+                    </div>
+                    <div class="u243">
+                      <div class="u244">
+                        <p class="u35">7</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="u86">
+                    <div class="u245">
+                      <p class="u14">3끝수 &amp; 7끝수 집중</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="u238">
+                <div class="u58">
+                  <p class="u239">동일 끝수 1~2개 포</p>
+                  <p class="u14">함 권장</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="u21">
+          <div class="u172"></div>
+          <div class="u74">
+            <div class="u99">
+              <div class="u246">
+                <div class="u247">
+                  <svg class="u11" viewBox="0 0 24 24" fill="#4cd7f6" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+                </div>
+              </div>
+              <div class="u12">
+                <div class="u15">
+                  <div class="u16">
+                    <p class="u248">구간별 출현 비중 (색상</p>
+                    <p class="u17">별)</p>
+                  </div>
+                </div>
+                <div class="u15">
+                  <div class="u18">
+                    <p class="u20">5개 공식 번호 대역별 밸런스</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="u249">
+              <div class="u250">
+                <p class="u239">균등 기준:</p>
+                <p class="u14">20%</p>
+              </div>
+            </div>
+          </div>
+          <div class="u251">
+            <div class="u218">
+              <div class="u252">
+                <div class="u253">
+                  <p class="u14">1</p>
+                </div>
+              </div>
+              <div class="u219">
+                <div class="u50">
+                  <p class="u239">1~10 (노</p>
+                  <p class="u14">랑)</p>
+                </div>
+              </div>
+              <div class="u220">
+                <div class="u254"></div>
+              </div>
+              <div class="u255">
+                <div class="u256">
+                  <p class="u14">22%</p>
+                </div>
+              </div>
+            </div>
+            <div class="u218">
+              <div class="u257">
+                <div class="u253">
+                  <p class="u14">11</p>
+                </div>
+              </div>
+              <div class="u219">
+                <div class="u250">
+                  <p class="u239">11~20 (파</p>
+                  <p class="u14">랑)</p>
+                </div>
+              </div>
+              <div class="u220">
+                <div class="u258"></div>
+              </div>
+              <div class="u255">
+                <div class="u259">
+                  <p class="u14">24%</p>
+                </div>
+              </div>
+            </div>
+            <div class="u218">
+              <div class="u260">
+                <div class="u253">
+                  <p class="u14">21</p>
+                </div>
+              </div>
+              <div class="u219">
+                <div class="u50">
+                  <p class="u239">21~30 (빨</p>
+                  <p class="u14">강)</p>
+                </div>
+              </div>
+              <div class="u220">
+                <div class="u261"></div>
+              </div>
+              <div class="u255">
+                <div class="u256">
+                  <p class="u14">20%</p>
+                </div>
+              </div>
+            </div>
+            <div class="u218">
+              <div class="u262">
+                <div class="u253">
+                  <p class="u14">31</p>
+                </div>
+              </div>
+              <div class="u219">
+                <div class="u50">
+                  <p class="u239">31~40 (회</p>
+                  <p class="u14">색)</p>
+                </div>
+              </div>
+              <div class="u220">
+                <div class="u263"></div>
+              </div>
+              <div class="u255">
+                <div class="u256">
+                  <p class="u14">21%</p>
+                </div>
+              </div>
+            </div>
+            <div class="u218">
+              <div class="u264">
+                <div class="u253">
+                  <p class="u14">41</p>
+                </div>
+              </div>
+              <div class="u219">
+                <div class="u50">
+                  <p class="u239">41~45 (초</p>
+                  <p class="u14">록)</p>
+                </div>
+              </div>
+              <div class="u220">
+                <div class="u265"></div>
+              </div>
+              <div class="u255">
+                <div class="u256">
+                  <p class="u14">13%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="u266">
+          <div class="u267"></div>
+          <div class="u268"></div>
+          <div class="u15">
+            <div class="u218">
+              <div class="u269">
+                <div class="u270">
+                  <p class="u14">AI RECOMMENDATION</p>
+                </div>
+              </div>
+              <div class="u12">
+                <div class="u245">
+                  <p class="u14">필터 100% 자동 매핑</p>
+                </div>
+              </div>
+            </div>
+            <div class="u170">
+              <div class="u15">
+                <div class="u271">
+                  <p class="u17">분석 통계 기반 조합 생성</p>
+                </div>
+              </div>
+            </div>
+            <div class="u170">
+              <div class="u15">
+                <div class="u272">
+                  <p class="u19">홀짝 3:3, 총합 131~160, 최빈 3/7끝수, 파랑 대역 가중치를 탑</p>
+                  <p class="u20">재한 필터링 엔진을 가동합니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="u273" data-act="href" data-href="combiner.html">
+            <div class="u274">
+              <svg class="u11" viewBox="0 0 24 24" fill="#dad7ff" aria-hidden="true"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+            </div>
+            <div class="u67">
+              <div class="u275">
+                <p class="u35">이 통계 기반으로 번호 자동 생성하기</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <nav class="app-nav" aria-label="하단 탭">
+    <div class="nav-row">
+      <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" width="20.167" height="20.167" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span>홈/추천</span></a>
+      <a class="nav-item active" href="stats.html" aria-current="page"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg><span>통계분석</span></a>
+      <a class="nav-item" href="combiner.html"><svg viewBox="0 0 24 24" width="16.5" height="16.5" fill="currentColor" aria-hidden="true"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg><span>번호조합</span></a>
+      <a class="nav-item" href="simulator.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19.8 18.4L14 10.67V6.5l1.35-1.69c.26-.33.03-.81-.39-.81H9.04c-.42 0-.65.48-.39.81L10 6.5v4.17L4.2 18.4c-.49.66-.02 1.6.8 1.6h14c.82 0 1.29-.94.8-1.6z"/></svg><span>시뮬레이터</span></a>
+      <a class="nav-item" href="vault.html"><svg viewBox="0 0 24 24" width="19.25" height="19.25" fill="currentColor" aria-hidden="true"><path d="M19 18l2 1V3c0-1.1-.9-2-2-2H8.99C7.89 1 7 1.9 7 3h10c1.1 0 2 .9 2 2v13zM15 5H5c-1.1 0-2 .9-2 2v16l7-3 7 3V7c0-1.1-.9-2-2-2z"/></svg><span>보관함</span></a>
+    </div>
+  </nav>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>

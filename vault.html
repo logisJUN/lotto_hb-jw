@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#051424">
+<meta name="description" content="로또랩 - AI 번호 추천, 통계 분석, 번호 조합기, 역대 당첨 시뮬레이터">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%234f46e5'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23fff'/%3E%3C/svg%3E">
+<title>로또랩 - 보관함</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="vault">
+<div class="app">
+  <header class="app-header">
+    <div class="hd-row">
+      <a class="hd-brand" href="index.html">
+        <span class="hd-logo" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#03b5d3"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><circle cx="16" cy="17" r="8" fill="#fff" fill-opacity=".18"/><path d="M13 9h6v3.2l3.4 6.3c.5 1-.2 2.2-1.3 2.2H10.9c-1.1 0-1.8-1.2-1.3-2.2L13 12.2V9z" fill="#fff"/><circle cx="14.2" cy="18.2" r="1.3" fill="#4f46e5"/><circle cx="18.2" cy="16.6" r="1.1" fill="#03b5d3"/></svg></span>
+        <span class="hd-text"><span class="hd-name">로또랩</span><span class="hd-round"><i></i>제 1115회차 D-2</span></span>
+      </a>
+      <div class="hd-actions">
+        <button class="hd-bell" type="button" aria-label="알림 목록"><svg viewBox="0 0 24 24" width="14.667" height="18.333" fill="currentColor" aria-hidden="true"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg><i class="hd-dot"></i></button>
+        <span class="hd-avatar"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
+      </div>
+    </div>
+  </header>
+  <main class="page">
+    <section class="vault">
+      <h1 class="v-title">내 보관함</h1>
+      <p class="v-sub">저장한 번호는 이 기기의 브라우저에만 보관됩니다.</p>
+      <ul class="v-list" id="vault-list"></ul>
+      <div class="v-empty" id="vault-empty" hidden>아직 저장한 번호가 없습니다.<br>추천 번호나 조합기 결과를 저장해 보세요.<br><a href="index.html">AI 추천 번호 보러가기</a></div>
+      <button type="button" class="v-clear" id="vault-clear" hidden>보관함 비우기</button>
+    </section>
+  </main>
+  <nav class="app-nav" aria-label="하단 탭">
+    <div class="nav-row">
+      <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" width="20.167" height="20.167" fill="currentColor" aria-hidden="true"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/></svg><span>홈/추천</span></a>
+      <a class="nav-item" href="stats.html"><svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg><span>통계분석</span></a>
+      <a class="nav-item" href="combiner.html"><svg viewBox="0 0 24 24" width="16.5" height="16.5" fill="currentColor" aria-hidden="true"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg><span>번호조합</span></a>
+      <a class="nav-item" href="simulator.html"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M19.8 18.4L14 10.67V6.5l1.35-1.69c.26-.33.03-.81-.39-.81H9.04c-.42 0-.65.48-.39.81L10 6.5v4.17L4.2 18.4c-.49.66-.02 1.6.8 1.6h14c.82 0 1.29-.94.8-1.6z"/></svg><span>시뮬레이터</span></a>
+      <a class="nav-item active" href="vault.html" aria-current="page"><svg viewBox="0 0 24 24" width="19.25" height="19.25" fill="currentColor" aria-hidden="true"><path d="M19 18l2 1V3c0-1.1-.9-2-2-2H8.99C7.89 1 7 1.9 7 3h10c1.1 0 2 .9 2 2v13zM15 5H5c-1.1 0-2 .9-2 2v16l7-3 7 3V7c0-1.1-.9-2-2-2z"/></svg><span>보관함</span></a>
+    </div>
+  </nav>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
