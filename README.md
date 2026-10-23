@@ -37,6 +37,21 @@ js/app.js       인터랙션
 3. 저장소의 `Settings` → `Pages`에서 Source를 `Deploy from a branch`, Branch를 `main` / `(root)`로 두고 `Save`를 누릅니다.
 4. 1~2분 뒤 `https://<GitHub 아이디>.github.io/<저장소 이름>/` 주소로 열립니다.
 
+## 역대 당첨번호 자동 수집
+
+`data/lotto.json`에 1회부터 최신 회차까지의 당첨번호가 저장되고, 매주 자동으로 갱신됩니다.
+
+- GitHub Actions(`.github/workflows/update-lotto.yml`)가 토요일 21:07, 일요일 09:07(한국 시간)에 `scripts/fetch-lotto.mjs`를 실행합니다.
+- 스크립트는 동행복권에서 파일에 없는 회차만 받아 추가하고, 변경이 있으면 저장소에 커밋합니다.
+- 바로 갱신하고 싶으면 저장소의 `Actions` → `로또 당첨번호 갱신` → `Run workflow`를 누릅니다.
+- 사이트에서는 `fetch('data/lotto.json')`으로 읽습니다. 형식은 회차당 한 줄입니다.
+
+```json
+{"round":1100,"date":"2023-12-30","numbers":[17,26,29,30,31,43],"bonus":12,"firstPrize":2640847625,"firstWinners":9,"totalSales":115838524000}
+```
+
+예약 실행은 기본 브랜치(`main`)에 있는 워크플로만 동작합니다.
+
 ## 알아둘 점
 
 - 글꼴은 Google Fonts(Inter, JetBrains Mono, Noto Sans KR)를 사용하므로 인터넷 연결이 필요합니다.

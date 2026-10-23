@@ -1,0 +1,45 @@
+name: 로또 당첨번호 갱신
+
+on:
+  schedule:
+    # 추첨은 토요일 20:35(KST). 토요일 21:07, 일요일 09:07(KST)에 한 번씩 받습니다.
+    - cron: '7 12 * * 6'
+    - cron: '7 0 * * 0'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/fetch-lotto.mjs'
+      - '.github/workflows/update-lotto.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-lotto
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 당첨번호 받기
+        run: node scripts/fetch-lotto.mjs
+
+      - name: 변경 사항 커밋
+        run: |
+          if git diff --quiet -- data && [ -z "$(git ls-files --others --exclude-standard data)" ]; then
+            echo "변경 없음"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "로또 당첨번호 갱신 ($(node -p "require('./data/lotto.json').at(-1).round")회)"
+          git push
