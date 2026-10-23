@@ -26,4 +26,5 @@
 
 - 화면의 모든 수치는 `data/lotto.json`으로 계산합니다. 근거 없는 수치나 "당첨 확률을 높인다"는 식의 문구는 넣지 않습니다.
 - 보관함 항목(`lottolab.vault`)은 `{nums, label, at, weekly?, round?}` 형식입니다. `round`가 있으면(QR 용지) 그 회차로, 없으면 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).
+- 보관함 백업: 파일은 `{app:'lottolab', version:1, exportedAt, items}`, 링크는 `vault.html#import=<base64url>`(항목을 `n`·`t`·`l`·`w`·`r`로 줄임). 가져올 때는 `cleanItem`으로 검사하고 `mergeVault`가 번호·회차·저장 시각이 같은 항목을 건너뜁니다. 보관함 항목 형식을 바꾸면 이 세 곳과 `version`도 함께 맞춥니다.
 - 로컬 확인은 `python3 -m http.server`로 띄워서 합니다. `file://`로 열면 `data/lotto.json`을 읽지 못합니다. 라이트·다크 둘 다 390px 폭에서 확인합니다.

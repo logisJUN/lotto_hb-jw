@@ -100,6 +100,63 @@
     if (saveVault(v.slice(0, 200))) toast('보관함에 ' + sets.length + '게임을 저장했습니다'); else toast('저장 공간을 사용할 수 없습니다');
   }
 
+  /* 보관함 백업·옮기기
+     - 파일: {app:'lottolab', version:1, exportedAt, items:[보관함 항목]} 형식의 JSON
+     - 링크: vault.html#import=<짧게 줄인 항목을 base64url로 바꾼 값>. 링크를 열면 미리 보고 넣을지 묻습니다.
+     - 가져올 때는 번호·회차·저장 시각이 같은 항목을 중복으로 보고 건너뜁니다. */
+  var BACKUP_KEY = 'lottolab.lastBackup';
+  // 바깥에서 들어온 항목을 검사해 보관함 형식으로 맞춥니다. 잘못된 항목은 null.
+  function cleanItem(o) {
+    if (!o || !Array.isArray(o.nums) || o.nums.length !== 6) return null;
+    var nums = o.nums.map(Number);
+    if (!nums.every(function (n) { return n >= 1 && n <= 45 && n % 1 === 0; }) || nums.filter(function (n, i) { return nums.indexOf(n) === i; }).length !== 6) return null;
+    var at = new Date(o.at);
+    if (isNaN(at)) return null;
+    var c = { nums: nums.sort(byNum), label: String(o.label || '').slice(0, 40), at: at.toISOString() };
+    if (o.weekly) c.weekly = true;
+    if (o.round && +o.round > 0 && +o.round % 1 === 0) c.round = +o.round;
+    return c;
+  }
+  function itemKey(o) { return o.nums.join(',') + '|' + (o.round || '') + '|' + o.at; }
+  // items를 보관함에 합칩니다. 결과: {added, dup, bad}
+  function mergeVault(items) {
+    var v = loadVault(), keys = {}, res = { added: 0, dup: 0, bad: 0 };
+    v.forEach(function (o) { keys[itemKey(o)] = 1; });
+    (items || []).forEach(function (raw) {
+      var o = cleanItem(raw);
+      if (!o) { res.bad++; return; }
+      if (keys[itemKey(o)]) { res.dup++; return; }
+      keys[itemKey(o)] = 1; v.push(o); res.added++;
+    });
+    v.sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });   // 최근에 저장한 번호가 위
+    saveVault(v.slice(0, 300));
+    return res;
+  }
+  function b64urlEncode(str) { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function b64urlDecode(str) { str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; return decodeURIComponent(escape(atob(str))); }
+  // 링크에는 항목을 짧게 줄여 담습니다: n=번호 12자리, t=저장 시각(초), l=이름, w=매주 구매, r=회차
+  function vaultLink(list) {
+    var short = list.map(function (o) {
+      var x = { n: o.nums.map(pad).join(''), t: Math.round(Date.parse(o.at) / 1000) };
+      if (o.label) x.l = o.label;
+      if (o.weekly) x.w = 1;
+      if (o.round) x.r = o.round;
+      return x;
+    });
+    return location.href.replace(/[^/]*([?#].*)?$/, '') + 'vault.html#import=' + b64urlEncode(JSON.stringify({ v: 1, i: short }));
+  }
+  function readVaultLink(hash) {
+    var m = /#import=([A-Za-z0-9_-]+)/.exec(hash || '');
+    if (!m) return null;
+    try {
+      var data = JSON.parse(b64urlDecode(m[1]));
+      return (data.i || []).map(function (x) {
+        var nums = []; for (var k = 0; k < 12; k += 2) nums.push(parseInt(String(x.n).substr(k, 2), 10));
+        return { nums: nums, at: new Date(x.t * 1000).toISOString(), label: x.l, weekly: !!x.w, round: x.r };
+      }).map(cleanItem).filter(Boolean);
+    } catch (e) { return []; }
+  }
+
   /* =====================================================
      당첨 데이터
      ===================================================== */
@@ -969,12 +1026,91 @@
         else { o.weekly = true; toast('매주 구매로 표시했어요. 저장한 뒤 열린 모든 회차를 확인해요'); }
         saveVault(v); draw();
       }
-      if (d) { v.splice(+d.getAttribute('data-del'), 1); saveVault(v); draw(); toast('삭제했습니다'); }
+      if (d) { v.splice(+d.getAttribute('data-del'), 1); saveVault(v); draw(); lastBackupText(); toast('삭제했습니다'); }
     });
     $('#vault-clear').addEventListener('click', function () {
-      if (window.confirm('저장한 번호를 모두 지울까요? 되돌릴 수 없습니다.')) { saveVault([]); draw(); toast('모두 지웠습니다'); }
+      if (window.confirm('저장한 번호를 모두 지울까요? 되돌릴 수 없습니다. 필요하면 먼저 [파일로 내보내기]로 백업해 두세요.')) { saveVault([]); draw(); lastBackupText(); toast('모두 지웠습니다'); }
     });
     $('#vault-copy').addEventListener('click', function () { copySets(loadVault().map(function (o) { return o.nums; })); });
+    // ---------- 백업·옮기기 ----------
+    function lastBackupText() {
+      var t; try { t = localStorage.getItem(BACKUP_KEY); } catch (e) {}
+      var d = t ? new Date(t) : null;
+      $('#backup-last').textContent = d && !isNaN(d) ? '마지막 백업: ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) : '아직 백업하지 않았어요';
+      var empty = !loadVault().length;
+      $('#backup-export').disabled = empty; $('#backup-link').disabled = empty;
+    }
+    function markBackup() { try { localStorage.setItem(BACKUP_KEY, new Date().toISOString()); } catch (e) {} lastBackupText(); }
+    function report(r) {
+      toast(r.added ? r.added + '게임을 가져왔어요' + (r.dup ? ' (이미 있는 ' + r.dup + '게임 제외)' : '')
+        : r.dup ? '모두 이미 보관함에 있는 번호예요' : '가져올 번호가 없어요');
+      draw(); lastBackupText();
+    }
+    // 1) 파일로 내보내기: 휴대폰은 공유 창(파일 앱·메신저 등), 그 밖에는 내려받기
+    $('#backup-export').addEventListener('click', function () {
+      var v = loadVault(); if (!v.length) return;
+      var now = new Date(), name = 'lottolab-backup-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.json';
+      var text = JSON.stringify({ app: 'lottolab', version: 1, exportedAt: now.toISOString(), items: v }, null, 2);
+      var file = null;
+      try { file = new File([text], name, { type: 'application/json' }); } catch (e) {}
+      if (file && navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: '로또랩 보관함 백업' }).then(function () { markBackup(); toast('백업 파일을 보냈어요'); }, function () {});
+        return;
+      }
+      var a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      markBackup(); toast(v.length + '게임을 ' + name + ' 파일로 저장했어요');
+    });
+    // 2) 파일에서 가져오기: 내보낸 파일(또는 예전 보관함 목록 그대로)을 읽어 합칩니다
+    $('#backup-import').addEventListener('click', function () { $('#backup-file').click(); });
+    $('#backup-file').addEventListener('change', function () {
+      var f = this.files && this.files[0]; this.value = '';
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var data; try { data = JSON.parse(rd.result); } catch (e) { toast('로또랩 백업 파일이 아니에요'); return; }
+        var items = Array.isArray(data) ? data : data && Array.isArray(data.items) ? data.items : null;
+        if (!items) { toast('로또랩 백업 파일이 아니에요'); return; }
+        report(mergeVault(items));
+      };
+      rd.onerror = function () { toast('파일을 읽을 수 없어요'); };
+      rd.readAsText(f);
+    });
+    // 3) 옮기기 링크: 링크 하나에 보관함 전체를 담습니다. 휴대폰은 공유 창, 그 밖에는 복사
+    $('#backup-link').addEventListener('click', function () {
+      var v = loadVault(); if (!v.length) return;
+      var url = vaultLink(v);
+      if (navigator.share) {
+        navigator.share({ title: '로또랩 보관함', text: '로또랩 보관함 ' + v.length + '게임', url: url }).then(function () { markBackup(); }, function () {});
+        return;
+      }
+      copyText(url).then(function (ok) {
+        if (ok) { markBackup(); toast('옮기기 링크를 복사했어요. 다른 기기에서 열면 보관함에 넣을 수 있어요'); }
+        else window.prompt('아래 링크를 복사해 다른 기기에서 열어 주세요', url);
+      });
+    });
+    // 링크로 열었을 때: 받은 번호를 미리 보여 주고, 누르면 합칩니다
+    var incoming = readVaultLink(location.hash);
+    if (incoming) {
+      var box = $('#vault-import');
+      box.hidden = false;
+      var clearHash = function () { try { history.replaceState(null, '', location.pathname); } catch (e) {} box.hidden = true; };
+      if (!incoming.length) {
+        box.innerHTML = '<p class="muted">링크가 잘렸거나 올바르지 않아요. 보낸 사람에게 링크를 다시 받아 주세요.</p>' +
+          '<div class="btn-row" style="margin-top:12px"><button class="btn btn-secondary" type="button" id="import-cancel">닫기</button></div>';
+      } else {
+        box.innerHTML = '<div class="card-head"><div><h2 class="card-title">링크로 받은 번호 ' + incoming.length + '게임</h2><p class="card-sub">보관함에 넣을까요? 이미 있는 번호는 건너뛰어요.</p></div></div>' +
+          '<div class="games">' + incoming.slice(0, 5).map(function (o) {
+            return '<div class="game"><div class="game-body">' + balls(o.nums, { size: 'sm', nowrap: true }) + '<div class="game-meta">' + esc(o.label || '저장') + (o.weekly ? ' · 매주 구매' : '') + (o.round && String(o.label).indexOf(o.round + '회') < 0 ? ' · ' + o.round + '회 용지' : '') + '</div></div></div>';
+          }).join('') + '</div>' + (incoming.length > 5 ? '<p class="hint" style="margin-top:8px">외 ' + (incoming.length - 5) + '게임</p>' : '') +
+          '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="import-cancel">취소</button>' +
+          '<button class="btn btn-primary" type="button" id="import-ok">보관함에 넣기</button></div>';
+        $('#import-ok').addEventListener('click', function () { report(mergeVault(incoming)); clearHash(); });
+      }
+      $('#import-cancel').addEventListener('click', clearHash);
+    }
+    lastBackupText();
     draw();
     loadDraws().then(function (d) { draws = d; draw(); })
       .catch(function () { listEl.innerHTML = '<p class="muted">당첨 데이터를 불러오지 못해 결과를 확인할 수 없어요.</p>'; });
