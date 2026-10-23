@@ -60,6 +60,7 @@
     save: '<path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/>',
     trash: '<path d="M4 7h16M10 11v6M14 11v6M5 7l1 13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1l1-13M9 7V4h6v3"/>',
     right: '<path d="m9 6 6 6-6 6"/>',
+    qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/>',
     left: '<path d="m15 6-6 6 6 6"/>'
   };
   function icon(name, size) {
@@ -88,9 +89,14 @@
   /* 보관함 (이 기기의 localStorage) */
   function loadVault() { try { return JSON.parse(localStorage.getItem(VAULT_KEY)) || []; } catch (e) { return []; } }
   function saveVault(list) { try { localStorage.setItem(VAULT_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
-  function addToVault(sets, label) {
+  // round를 주면 그 회차 용지로 저장합니다(QR 용지). 없으면 저장 뒤 첫 추첨이 대상입니다.
+  function addToVault(sets, label, round) {
     var v = loadVault(), t = new Date().toISOString();
-    sets.forEach(function (s) { v.unshift({ nums: s.slice().sort(byNum), label: label || '', at: t }); });
+    sets.slice().reverse().forEach(function (s) {
+      var o = { nums: s.slice().sort(byNum), label: label || '', at: t };
+      if (round) o.round = round;
+      v.unshift(o);
+    });
     if (saveVault(v.slice(0, 200))) toast('보관함에 ' + sets.length + '게임을 저장했습니다'); else toast('저장 공간을 사용할 수 없습니다');
   }
 
@@ -285,17 +291,70 @@
   }
 
   /* =====================================================
+     로또 용지 QR (당첨 조회 > 용지 QR)
+     ===================================================== */
+  /* 용지 QR에는 동행복권 주소가 들어 있습니다.
+       예) https://www.dhlottery.co.kr/qr.do?method=winQr&v=1242q020423242538q020607123941
+     v= 뒤의 앞 4자리가 회차(1242), 그 뒤로 게임마다 영문 1자(q·m·s 등, 자동/수동 구분) + 두 자리 번호 6개(12자리)가 이어집니다.
+     맨 끝에 용지 고유번호 숫자가 더 붙어 있어도 게임마다 12자리만 읽으므로 무시됩니다. */
+  function parseTicket(text) {
+    var m = String(text || '').match(/[?&]v=([0-9a-z]+)/i);
+    if (!m) return null;
+    var v = m[1], round = parseInt(v.slice(0, 4), 10);
+    if (!(round > 0)) return null;
+    var games = [], re = /[a-z](\d{12})/gi, g;
+    while ((g = re.exec(v.slice(4))) && games.length < 5) {
+      var nums = [];
+      for (var i = 0; i < 12; i += 2) nums.push(parseInt(g[1].substr(i, 2), 10));
+      var ok = nums.every(function (n) { return n >= 1 && n <= 45; }) && nums.filter(function (n, k) { return nums.indexOf(n) === k; }).length === 6;
+      if (ok) games.push(nums.sort(byNum));
+    }
+    return games.length ? { round: round, games: games } : null;
+  }
+  // QR 읽기: 브라우저에 내장된 BarcodeDetector가 있으면 쓰고, 없으면 jsQR(js/vendor)을 그때 불러옵니다.
+  var jsQRPromise;
+  function loadJsQR() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    if (!jsQRPromise) jsQRPromise = new Promise(function (ok, fail) {
+      var sc = document.createElement('script');
+      sc.src = 'js/vendor/jsQR.min.js';
+      sc.onload = function () { window.jsQR ? ok(window.jsQR) : fail(new Error('jsQR')); };
+      sc.onerror = function () { jsQRPromise = null; fail(new Error('jsQR')); };
+      document.head.appendChild(sc);
+    });
+    return jsQRPromise;
+  }
+  var detector = null;
+  try { if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+  // source(video·img·canvas)에서 QR 글자를 읽어 돌려줍니다. 못 찾으면 null.
+  function readQR(source, w, h, canvas) {
+    if (detector) {
+      return detector.detect(source).then(function (r) { return r.length ? r[0].rawValue : null; }, function () { detector = null; return readQR(source, w, h, canvas); });
+    }
+    return loadJsQR().then(function (jsQR) {
+      var scale = Math.min(1, 800 / Math.max(w, h));
+      canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+      var ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+      var img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+      return code ? code.data : null;
+    });
+  }
+
+  /* =====================================================
      보관함 결과 (홈 요약 + 보관함 화면 공용)
      ===================================================== */
   // 저장한 시각 이후 첫 추첨이 대상 회차입니다. 아직 추첨 전이면 draw 없음.
-  // 일반 번호: 저장한 시각 이후 첫 추첨 한 번으로 확인합니다.
+  // 일반 번호: 저장한 시각 이후 첫 추첨 한 번으로 확인합니다. (QR 용지로 저장한 번호는 o.round 회차)
   // 매주 구매 번호(o.weekly): 저장한 시각 이후 열린 모든 추첨을 확인하고, 구입액·당첨금·최고 등수를 더합니다.
   function vaultResult(o, draws) {
     var at = Date.parse(o.at), first = draws.length;
-    for (var i = draws.length - 1; i >= 0 && drawAt(draws[i]) > at; i--) first = i;
-    var after = draws.slice(first);                     // 저장한 뒤에 열린 추첨들 (오래된 회차부터)
+    if (o.round) first = Math.max(0, o.round - draws[0].round);          // QR 용지: 용지에 찍힌 회차부터
+    else for (var i = draws.length - 1; i >= 0 && drawAt(draws[i]) > at; i--) first = i;
+    var after = draws.slice(first);                     // 대상 회차들 (오래된 회차부터)
     if (!after.length) {
-      var nr = nextDraw(draws[draws.length - 1]).round;
+      var nr = o.round || nextDraw(draws[draws.length - 1]).round;
       return { o: o, weekly: !!o.weekly, round: nr, from: nr, count: 0 };
     }
     if (!o.weekly) {
@@ -384,7 +443,8 @@
         '<a class="link" href="simulator.html">회차별 조회' + icon('right', 16) + '</a></div>' +
         balls(d.numbers, { bonus: d.bonus, size: 'lg', nowrap: true }) +
         '<div class="hero-meta"><div class="hero-stat"><span>1등 당첨금 (1인)</span><b class="num">' + (first ? won(first) : '-') + '</b></div>' +
-        '<div class="hero-stat"><span>1등 당첨자</span><b class="num">' + (winners != null ? winners + '명' : '-') + '</b></div></div>';
+        '<div class="hero-stat"><span>1등 당첨자</span><b class="num">' + (winners != null ? winners + '명' : '-') + '</b></div></div>' +
+        '<a class="btn btn-sm hero-btn" href="simulator.html#qr">' + icon('qr', 16) + '내 용지 QR로 당첨 확인</a>';
       $('#count-title').textContent = '제 ' + next.round + '회 추첨까지';
       $('#count-date').textContent = kstDateText(next.at);
       (function tick() {
@@ -661,10 +721,12 @@
       $$('#check-tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
       $('#tab-round').hidden = name !== 'round';
       $('#tab-mine').hidden = name !== 'mine';
-      try { history.replaceState(null, '', name === 'mine' ? '#mine' : location.pathname); } catch (e) {}
+      $('#tab-qr').hidden = name !== 'qr';
+      try { history.replaceState(null, '', name === 'round' ? location.pathname : '#' + name); } catch (e) {}
     }
     $$('#check-tabs button').forEach(function (b) { b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); }); });
-    showTab(location.hash === '#mine' ? 'mine' : 'round');
+    showTab(location.hash === '#mine' ? 'mine' : location.hash === '#qr' ? 'qr' : 'round');
+    initQr();
 
     // 회차별 결과
     function renderRound() {
@@ -754,6 +816,121 @@
 
     loadDraws().then(function (d) { draws = d; go(d.length - 1); $('#all-count').textContent = d.length; })
       .catch(function () { loadError($('#round-card')); });
+  }
+
+  /* 당첨 조회 > 용지 QR: 카메라 스캔 / 사진에서 찾기 / 주소 붙여넣기 → parseTicket → 결과 */
+  function initQr() {
+    var sheet = $('#qr-sheet'), video = $('#qr-video'), status = $('#qr-status'), canvas = document.createElement('canvas');
+    var stream = null, timer = null, busy = false;
+
+    function stop() {
+      clearTimeout(timer); timer = null;
+      if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+      video.srcObject = null;
+    }
+    function closeSheet() { stop(); if (sheet.open) sheet.close(); }
+    sheet.addEventListener('close', stop);                                   // Esc나 닫기 버튼 모두 카메라를 끔
+    $('#qr-close').addEventListener('click', closeSheet);
+
+    // 읽은 글자를 로또 용지로 해석해 결과를 그립니다. 로또 QR이 아니면 false.
+    function handle(text) {
+      var t = parseTicket(text);
+      if (!t) return false;
+      closeSheet();
+      showTicket(t);
+      return true;
+    }
+
+    // 1) 카메라로 스캔: 뒤쪽 카메라를 켜고 0.25초마다 화면을 읽습니다.
+    $('#qr-scan').addEventListener('click', function () {
+      if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { toast('이 브라우저는 카메라를 쓸 수 없어요. [사진에서 찾기]를 써 주세요'); return; }
+      status.textContent = '카메라를 켜는 중…';
+      sheet.showModal();
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }).then(function (s) {
+        if (!sheet.open) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
+        stream = s; video.srcObject = s; video.play();
+        status.textContent = '용지의 QR 코드를 네모 안에 맞춰 주세요';
+        (function loop() {
+          if (!stream) return;
+          if (!busy && video.readyState >= 2 && video.videoWidth) {
+            busy = true;
+            readQR(video, video.videoWidth, video.videoHeight, canvas).then(function (text) {
+              busy = false;
+              if (text && !handle(text)) status.textContent = '로또 용지 QR이 아니에요. 용지 아래쪽 QR을 비춰 주세요';
+            }, function () { busy = false; status.textContent = 'QR 읽기 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요'; });
+          }
+          timer = setTimeout(loop, 250);
+        })();
+      }, function (err) {
+        status.textContent = err && err.name === 'NotAllowedError'
+          ? '카메라 권한이 꺼져 있어요. 브라우저 설정에서 허용하거나 [사진에서 찾기]를 써 주세요'
+          : '카메라를 켤 수 없어요. [사진에서 찾기]를 써 주세요';
+      });
+    });
+
+    // 2) 사진에서 찾기: 고른 사진을 읽습니다. 큰 사진에서 못 찾으면 작게 줄여 한 번 더 봅니다.
+    $('#qr-photo').addEventListener('click', function () { $('#qr-file').click(); });
+    $('#qr-file').addEventListener('change', function () {
+      var f = this.files && this.files[0]; this.value = '';
+      if (!f) return;
+      var img = new Image(), url = URL.createObjectURL(f);
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        readQR(img, img.naturalWidth, img.naturalHeight, canvas).then(function (text) {
+          if (!text && !detector) {
+            var c2 = document.createElement('canvas'), k = 400 / Math.max(img.naturalWidth, img.naturalHeight);
+            c2.width = Math.round(img.naturalWidth * k); c2.height = Math.round(img.naturalHeight * k);
+            c2.getContext('2d').drawImage(img, 0, 0, c2.width, c2.height);
+            return readQR(c2, c2.width, c2.height, canvas);
+          }
+          return text;
+        }).then(function (text) {
+          if (!text) toast('사진에서 QR 코드를 찾지 못했어요. QR이 크고 선명하게 나오도록 다시 찍어 주세요');
+          else if (!handle(text)) toast('로또 용지 QR이 아니에요');
+        }, function () { toast('QR 읽기 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요'); });
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); toast('사진을 열 수 없어요'); };
+      img.src = url;
+    });
+
+    // 3) 주소 붙여넣기: 다른 앱으로 읽은 QR 주소를 그대로 붙여 넣습니다.
+    $('#qr-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!handle($('#qr-text').value.trim())) toast('로또 용지 QR 주소가 아니에요. "v=" 가 들어 있는 주소를 붙여 넣어 주세요');
+    });
+
+    // 결과: 용지 회차가 추첨된 회차면 게임마다 등수·당첨금, 아직이면 추첨 대기 안내
+    function showTicket(t) {
+      var box = $('#qr-result');
+      loadDraws().then(function (draws) {
+        var d = draws[t.round - draws[0].round], total = 0, winCount = 0;
+        var rows = t.games.map(function (g, i) {
+          var L = String.fromCharCode(65 + i);
+          if (!d) return '<div class="game"><span class="game-label">' + L + '</span><div class="game-body">' + balls(g, { size: 'sm', nowrap: true }) + '</div></div>';
+          var r = rankOf(g, d), p = prizeOf(r, d);
+          total += p; if (r) winCount++;
+          return '<div class="game"><span class="game-label">' + L + '</span><div class="game-body">' + balls(g, { size: 'sm', nowrap: true, hits: hitsOf(g, d) }) +
+            '<div class="game-meta">' + (r ? '<span class="badge win">' + RANK_TEXT[r] + '</span> <span class="prize-text">' + comma(p) + '원</span>' : '<span class="badge">낙첨</span>') +
+            ' · ' + g.filter(function (n) { return d.numbers.indexOf(n) >= 0; }).length + '개 일치' + (g.indexOf(d.bonus) >= 0 ? ' + 보너스' : '') + '</div></div></div>';
+        }).join('');
+        var head = d
+          ? '<div class="card-head"><div><p class="card-sub">' + fmtDate(d.date, true) + ' 추첨</p><h2 class="card-title" style="font-size:20px">제 ' + t.round + '회 용지 · ' + t.games.length + '게임</h2></div>' +
+            '<span class="badge ' + (winCount ? 'win' : '') + '">' + (winCount ? winCount + '게임 당첨' : '모두 낙첨') + '</span></div>' +
+            '<p class="group-label" style="margin-top:0">당첨번호</p>' + balls(d.numbers, { bonus: d.bonus, size: 'sm', nowrap: true }) +
+            '<p class="group-label">내 용지</p>'
+          : '<div class="card-head"><div><p class="card-sub">아직 추첨 전이에요</p><h2 class="card-title" style="font-size:20px">제 ' + t.round + '회 용지 · ' + t.games.length + '게임</h2></div><span class="badge wait">추첨 대기</span></div>' +
+            '<p class="hint" style="margin-bottom:10px">' + (t.round === nextDraw(draws[draws.length - 1]).round ? kstDateText(nextDraw(draws[draws.length - 1]).at) + ' 추첨이에요. ' : '') + '보관함에 저장해 두면 추첨 뒤 자동으로 결과를 보여 드려요.</p>';
+        box.hidden = false;
+        box.innerHTML = head + '<div class="games">' + rows + '</div>' +
+          (d ? '<div class="tiles" style="margin-top:14px"><div class="tile"><span>총 당첨금</span><b class="num ' + (total ? 'prize' : '') + '">' + comma(total) + '원</b></div>' +
+            '<div class="tile"><span>구입 금액</span><b class="num">' + comma(t.games.length * 1000) + '원</b></div></div>' : '') +
+          '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="qr-again">다른 용지 확인</button>' +
+          '<button class="btn btn-primary" type="button" id="qr-save">보관함에 저장</button></div>';
+        $('#qr-again').addEventListener('click', function () { box.hidden = true; $('#qr-scan').focus(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+        $('#qr-save').addEventListener('click', function () { addToVault(t.games, 'QR 용지 ' + t.round + '회', t.round); });
+        box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
   }
 
   /* =====================================================

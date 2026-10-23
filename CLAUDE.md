@@ -16,7 +16,8 @@
 - `css/style.css`: 맨 위 `:root`(라이트)와 `[data-theme="dark"]`의 색 토큰, 그 아래 공통 컴포넌트(`.card`, `.btn`, `.seg`, `.chip`, `.switch`, `.ball`, `.board`, `.bars` 등). 화면 코드에 색 값을 직접 쓰지 말고 토큰을 씁니다.
 - 색 역할: `--primary` 브랜드·주요 버튼·선택, `--prize` 당첨금, `--win` 당첨·일치, `--danger` 삭제·제외. 로또 공 색은 `.ball.y/.b/.r/.g/.n`에만 씁니다.
 - `js/app.js`: 공통(데이터 읽기, 등수 계산 `rankOf`, 가장 많이 맞은 회차 `findBestMatches`, 번호 생성 `generate`, 6개 고르기 판 `makePicker`, 보관함, 테마) 다음에 화면별 `initHome`/`initGenerate`/`initStats`(+`initBestMatch`)/`initCheck`/`initVault`.
-- 아래에서 올라오는 창은 `<dialog class="sheet">`를 씁니다(통계의 번호 고르기 창).
+- 아래에서 올라오는 창은 `<dialog class="sheet">`를 씁니다(통계의 번호 고르기 창, 당첨 조회의 QR 카메라 창).
+- 용지 QR: `parseTicket`(주소의 `v=` → 회차 4자리 + 게임마다 글자 1자·12자리), `readQR`(BarcodeDetector가 없으면 `js/vendor/jsQR.min.js`를 그때 불러옴), 화면은 `initQr`. 외부 CDN은 쓰지 않습니다.
 - `data/lotto.json`: 1회부터 최신 회차까지 당첨번호, 1~5등 당첨금(`prizes`)과 당첨자 수(`winners`). 회차당 한 줄이며 직접 고치지 않습니다.
 - `scripts/fetch-lotto.mjs`: 동행복권 `lt645/selectPstLt645Info.do`에서 새 회차를 받아 `data/lotto.json`에 추가합니다.
 - `.github/workflows/update-lotto.yml`: 매주 토요일 21:07, 일요일 09:07(KST)에 위 스크립트를 실행하고 `main`에 커밋합니다.
@@ -24,5 +25,5 @@
 ## 알아둘 점
 
 - 화면의 모든 수치는 `data/lotto.json`으로 계산합니다. 근거 없는 수치나 "당첨 확률을 높인다"는 식의 문구는 넣지 않습니다.
-- 보관함 항목(`lottolab.vault`)은 `{nums, label, at, weekly?}` 형식입니다. 보통은 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).
+- 보관함 항목(`lottolab.vault`)은 `{nums, label, at, weekly?, round?}` 형식입니다. `round`가 있으면(QR 용지) 그 회차로, 없으면 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).
 - 로컬 확인은 `python3 -m http.server`로 띄워서 합니다. `file://`로 열면 `data/lotto.json`을 읽지 못합니다. 라이트·다크 둘 다 390px 폭에서 확인합니다.
