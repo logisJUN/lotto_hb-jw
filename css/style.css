@@ -567,3 +567,33 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .u487{height:20.071px;position:relative;flex-shrink:0;width:20.047px}
 .u488{display:flex;flex-direction:column;font-family:'Inter','Noto Sans KR',sans-serif;font-weight:800;justify-content:center;line-height:0;font-style:normal;position:relative;flex-shrink:0;color:#dad7ff;font-size:18px;text-align:center;white-space:nowrap}
 .u489{height:76px;flex-shrink:0;width:100%}
+
+/* ---------- 디자인 개선 (가독성·접근성) ---------- */
+/* Figma가 줄바꿈 위치마다 나눠 둔 문장을 한 문단으로 합친 곳: 화면 폭에 맞춰 자연스럽게 줄바꿈 */
+.txt-flow{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+.txt-flow:not(:only-child){flex:1 1 auto}
+/* 시뮬레이터: 재실행 버튼 글자가 "완료됨" 배지와 겹치지 않게, "원 순익"이 한 줄에 오게 */
+.u68{font-size:16px}
+.u69{position:static}
+.u80{white-space:nowrap}
+/* 대비가 낮던 보조 텍스트 (WCAG AA 4.5:1 이상) */
+.u215{color:#908fa0}
+/* 안내 문구 */
+.notice{align-self:stretch;margin:24px 16px 0;padding:14px 16px;border-radius:12px;background:#0a1a2c;border:1px solid #1c2b3c;color:#a9a7bc;font-size:12px;line-height:1.6;word-break:keep-all}
+.notice strong{color:#d4e4fa;font-weight:600}
+/* 움직임 줄이기 설정 존중 */
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* 합친 문단이 들어 있는 고정 폭 칸도 줄어들 수 있게 해서 화면 밖으로 넘치지 않게 */
+.page :has(> .txt-flow){flex-shrink:1;min-width:0;white-space:normal}
+/* 번호조합: 오른쪽 보조 문구가 자리가 모자라면 다음 줄로 내려가게 */
+.u450,.u23:has(> .u469){flex-wrap:wrap;row-gap:4px}
+.u450{flex-shrink:1;min-width:0}
+.u453 .txt-flow,.u469 .txt-flow{white-space:nowrap}
+/* 제목과 오른쪽 배지 사이 최소 간격 */
+.u74{gap:8px}
+/* 홈 D·E 조합: 마지막 번호와 적중률 사이 간격 */
+[data-crow]+.u12{margin-left:8px}
+/* 시뮬레이터 결과 금액: 절대 위치 대신 한 줄 흐름으로 (금액 길이에 상관없이 겹치지 않게) */
+.u74:has(.u77){flex-wrap:wrap;row-gap:12px}
+.u77{display:flex;align-items:baseline;gap:6px;height:auto;padding:8px 0}
+.u78,.u80{position:static;transform:none}

@@ -11,7 +11,8 @@
 ## 구조
 
 - `index.html`, `stats.html`, `combiner.html`, `simulator.html`, `vault.html`: 화면 5개 (`body`의 `data-page`로 구분)
-- `css/style.css`: 공통 스타일. `u123` 같은 클래스는 Figma에서 추출한 것이라 이름에 의미가 없습니다.
+- `css/style.css`: 공통 스타일. `u123` 같은 클래스는 Figma에서 추출한 것이라 이름에 의미가 없습니다. 파일 끝의 "디자인 개선" 구역에 손으로 고친 규칙을 모아 둡니다.
+- Figma가 줄바꿈 위치마다 `<p>`를 나눠 둔 문장은 하나의 `<p class="... txt-flow">`로 합쳐 자연스럽게 줄바꿈되게 합니다.
 - `js/app.js`: 모든 화면의 인터랙션 (라이브러리 없는 순수 JavaScript)
 - `data/lotto.json`: 1회부터 최신 회차까지의 당첨번호. 회차당 한 줄이며 직접 고치지 않습니다.
 - `scripts/fetch-lotto.mjs`: 동행복권 `lt645/selectPstLt645Info.do`에서 새 회차를 받아 `data/lotto.json`에 추가합니다.

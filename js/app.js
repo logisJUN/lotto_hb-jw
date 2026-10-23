@@ -594,7 +594,7 @@
       });
 
       if (el.ai) el.ai.textContent = '홀짝 ' + oeMode + ', 총합 ' + ['100~130', '131~160', '161~190'][gold] +
-        ', 최빈 ' + top2.join('/') + '끝수, ' + ZONES[hot][2] + ' 대역 가중치를 탑';
+        ', 최빈 ' + top2.join('/') + '끝수, ' + ZONES[hot][2] + ' 대역 가중치를 탑재한 필터링 엔진을 가동합니다.';
     }
 
     groupHooks.period = function (sel) {
