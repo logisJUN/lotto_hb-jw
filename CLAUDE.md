@@ -24,5 +24,5 @@
 ## 알아둘 점
 
 - 화면의 모든 수치는 `data/lotto.json`으로 계산합니다. 근거 없는 수치나 "당첨 확률을 높인다"는 식의 문구는 넣지 않습니다.
-- 보관함 항목(`lottolab.vault`)은 `{nums, label, at}` 형식이고, 저장 시각 이후 첫 추첨으로 당첨 여부를 판단합니다.
+- 보관함 항목(`lottolab.vault`)은 `{nums, label, at, weekly?}` 형식입니다. 보통은 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).
 - 로컬 확인은 `python3 -m http.server`로 띄워서 합니다. `file://`로 열면 `data/lotto.json`을 읽지 못합니다. 라이트·다크 둘 다 390px 폭에서 확인합니다.

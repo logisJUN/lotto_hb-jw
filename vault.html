@@ -26,13 +26,14 @@
   <main>
     <div class="page-head">
       <h1>보관함</h1>
-      <p>저장한 번호와 당첨 결과예요. 저장한 뒤 처음 열린 추첨 결과로 확인해요.</p>
+      <p>저장한 번호와 당첨 결과예요. 저장한 뒤 처음 열린 추첨 결과로 확인하고, <b>매주 구매</b>를 켠 번호는 그 뒤의 모든 회차를 확인해요.</p>
     </div>
 
     <section class="card" id="vault-tools" hidden>
       <div class="card-head" style="margin-bottom:10px">
         <div><h2 class="card-title" id="vault-count">0게임</h2><p class="card-sub" id="vault-summary"></p></div>
       </div>
+      <div id="vault-weekly" hidden style="margin-bottom:14px"></div>
       <div class="btn-row">
         <button class="btn btn-secondary btn-sm" type="button" id="vault-copy">전체 복사</button>
         <button class="btn btn-secondary btn-sm btn-danger" type="button" id="vault-clear">전체 삭제</button>

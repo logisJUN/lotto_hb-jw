@@ -26,8 +26,7 @@
   function pct(n, d, digits) { return (d ? n / d * 100 : 0).toFixed(digits == null ? 1 : digits) + '%'; }
   function won(n) {
     if (n >= 1e8) return (n / 1e8).toFixed(n >= 1e10 ? 0 : 1).replace(/\.0$/, '') + '억원';
-    if (n >= 1e4) return comma(n / 1e4) + '만원';
-    return comma(n) + '원';
+    return comma(n) + '원';                 // 1억 미만은 반올림하지 않고 그대로 (예: 146,000원)
   }
   function fmtDate(iso, withDay) {
     var d = new Date(iso + 'T00:00:00Z');
@@ -289,11 +288,38 @@
      보관함 결과 (홈 요약 + 보관함 화면 공용)
      ===================================================== */
   // 저장한 시각 이후 첫 추첨이 대상 회차입니다. 아직 추첨 전이면 draw 없음.
+  // 일반 번호: 저장한 시각 이후 첫 추첨 한 번으로 확인합니다.
+  // 매주 구매 번호(o.weekly): 저장한 시각 이후 열린 모든 추첨을 확인하고, 구입액·당첨금·최고 등수를 더합니다.
   function vaultResult(o, draws) {
-    var at = Date.parse(o.at), target = null;
-    for (var i = draws.length - 1; i >= 0; i--) { if (drawAt(draws[i]) > at) target = draws[i]; else break; }
-    if (!target) return { o: o, round: nextDraw(draws[draws.length - 1]).round };
-    return { o: o, draw: target, round: target.round, rank: rankOf(o.nums, target), hits: hitsOf(o.nums, target) };
+    var at = Date.parse(o.at), first = draws.length;
+    for (var i = draws.length - 1; i >= 0 && drawAt(draws[i]) > at; i--) first = i;
+    var after = draws.slice(first);                     // 저장한 뒤에 열린 추첨들 (오래된 회차부터)
+    if (!after.length) {
+      var nr = nextDraw(draws[draws.length - 1]).round;
+      return { o: o, weekly: !!o.weekly, round: nr, from: nr, count: 0 };
+    }
+    if (!o.weekly) {
+      var t = after[0];
+      return { o: o, draw: t, round: t.round, rank: rankOf(o.nums, t), hits: hitsOf(o.nums, t) };
+    }
+    var prize = 0, wins = 0, best = 0, bestDraw = null;
+    after.forEach(function (d) {
+      var r = rankOf(o.nums, d);
+      if (!r) return;
+      wins++; prize += prizeOf(r, d);
+      if (!best || r < best || (r === best && d.round > bestDraw.round)) { best = r; bestDraw = d; }
+    });
+    var last = after[after.length - 1];                 // 가장 최근 회차 결과를 대표로 보여 줍니다
+    return {
+      o: o, weekly: true, draw: last, round: last.round, rank: rankOf(o.nums, last), hits: hitsOf(o.nums, last),
+      from: after[0].round, count: after.length, spent: after.length * 1000, prize: prize, wins: wins, best: best, bestDraw: bestDraw
+    };
+  }
+  // 매주 구매 번호들의 합계 (보관함 위쪽 요약)
+  function weeklyTotals(rows) {
+    var t = { games: 0, spent: 0, prize: 0, wins: 0 };
+    rows.forEach(function (r) { if (!r.weekly) return; t.games++; t.spent += r.spent || 0; t.prize += r.prize || 0; t.wins += r.wins || 0; });
+    return t;
   }
   function vaultRowHTML(r, i, withActions) {
     var badge = !r.draw ? '<span class="badge wait">' + r.round + '회 추첨 대기</span>'
@@ -301,9 +327,18 @@
         : '<span class="badge">' + r.round + '회 낙첨</span>';
     var d = new Date(r.o.at);
     var when = isNaN(d) ? '' : (d.getMonth() + 1) + '월 ' + d.getDate() + '일 저장';
-    return '<div class="game"><div class="game-body">' +
+    var weekly = '';
+    if (r.weekly) {
+      weekly = '<div class="weekly-line">' + (r.count
+        ? '<b>' + r.from + '~' + r.round + '회 ' + r.count + '번 구매</b> · 구입 ' + won(r.spent) + ' · 당첨 <span class="' + (r.prize ? 'prize-text' : '') + '">' + won(r.prize) + '</span>' +
+          (r.wins ? ' (' + r.wins + '번) · 최고 ' + RANK_TEXT[r.best] + ' (' + r.bestDraw.round + '회)' : ' · 아직 당첨 없음')
+        : '<b>' + r.from + '회부터 매주 확인</b> · 첫 추첨을 기다리는 중') + '</div>';
+    }
+    return '<div class="game' + (r.weekly ? ' is-weekly' : '') + '"><div class="game-body">' +
       balls(r.o.nums, { size: 'sm', nowrap: true, hits: r.draw ? r.hits : null }) +
-      '<div class="game-meta">' + badge + ' <span>' + esc(r.o.label || '저장') + ' · ' + when + '</span></div></div>' +
+      '<div class="game-meta">' + badge + ' <span>' + esc(r.o.label || '저장') + ' · ' + when + '</span></div>' + weekly +
+      (withActions ? '<button type="button" class="chip chip-sm" data-weekly="' + i + '" aria-pressed="' + !!r.weekly + '">' + icon('refresh', 14) + (r.weekly ? '매주 구매 중' : '매주 구매') + '</button>' : '') +
+      '</div>' +
       (withActions ? '<div class="game-actions"><button class="icon-btn" type="button" data-copy="' + i + '" aria-label="복사">' + icon('copy') + '</button>' +
         '<button class="icon-btn btn-danger" type="button" data-del="' + i + '" aria-label="삭제">' + icon('trash') + '</button></div>' : '') +
       '</div>';
@@ -735,12 +770,28 @@
       if (!draws) { listEl.innerHTML = '<div class="skeleton" style="height:140px"></div>'; return; }
       var rows = v.map(function (o) { return vaultResult(o, draws); });
       var wins = rows.filter(function (r) { return r.rank; }).length, checked = rows.filter(function (r) { return r.draw; }).length;
-      $('#vault-summary').textContent = checked ? '결과가 나온 ' + checked + '게임 중 ' + wins + '게임 당첨' : '아직 결과가 나온 게임이 없어요';
-      listEl.innerHTML = '<div class="games">' + rows.map(function (r, i) { return vaultRowHTML(r, i, true); }).join('') + '</div>';
+      $('#vault-summary').textContent = checked ? '결과가 나온 ' + checked + '게임 중 ' + wins + '게임 당첨 (매주 구매 번호는 최근 회차 기준)' : '아직 결과가 나온 게임이 없어요';
+      var t = weeklyTotals(rows), wk = $('#vault-weekly');
+      wk.hidden = !t.games;
+      if (t.games) wk.innerHTML =
+        '<p class="group-label">매주 구매 ' + t.games + '게임 · 매주 ' + comma(t.games * 1000) + '원</p>' +
+        '<div class="tiles"><div class="tile"><span>누적 구입</span><b class="num">' + won(t.spent) + '</b></div>' +
+        '<div class="tile"><span>누적 당첨</span><b class="num prize">' + won(t.prize) + '</b></div>' +
+        '<div class="tile"><span>회수율</span><b class="num">' + (t.spent ? (t.prize / t.spent * 100).toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '%' : '-') + '</b></div>' +
+        '<div class="tile"><span>당첨 횟수</span><b class="num">' + t.wins + '번</b></div></div>';
+      // 매주 구매 번호를 위에, 나머지는 저장한 순서대로
+      var order = rows.map(function (r, i) { return i; }).sort(function (a, b) { return (rows[b].weekly ? 1 : 0) - (rows[a].weekly ? 1 : 0) || a - b; });
+      listEl.innerHTML = '<div class="games">' + order.map(function (i) { return vaultRowHTML(rows[i], i, true); }).join('') + '</div>';
     }
     listEl.addEventListener('click', function (e) {
-      var v = loadVault(), c = e.target.closest('[data-copy]'), d = e.target.closest('[data-del]');
+      var v = loadVault(), c = e.target.closest('[data-copy]'), d = e.target.closest('[data-del]'), w = e.target.closest('[data-weekly]');
       if (c) copySets([v[+c.getAttribute('data-copy')].nums]);
+      if (w) {
+        var o = v[+w.getAttribute('data-weekly')];
+        if (o.weekly) { delete o.weekly; toast('매주 구매를 껐어요. 저장 뒤 첫 추첨 결과만 보여 줘요'); }
+        else { o.weekly = true; toast('매주 구매로 표시했어요. 저장한 뒤 열린 모든 회차를 확인해요'); }
+        saveVault(v); draw();
+      }
       if (d) { v.splice(+d.getAttribute('data-del'), 1); saveVault(v); draw(); toast('삭제했습니다'); }
     });
     $('#vault-clear').addEventListener('click', function () {

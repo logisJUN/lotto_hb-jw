@@ -236,6 +236,7 @@ main { padding: 4px 16px calc(96px + env(safe-area-inset-bottom)); display: flex
   border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
   font-size: 14px; font-weight: 600;
 }
+.chip-sm { min-height: 36px; padding: 0 12px; font-size: 13px; margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; }
 .chip[aria-pressed="true"] { background: var(--primary-weak); border-color: var(--primary); color: var(--primary-text); }
 
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; }
@@ -298,6 +299,10 @@ main { padding: 4px 16px calc(96px + env(safe-area-inset-bottom)); display: flex
 }
 .game .balls { flex: 1; min-width: 0; gap: 5px; }
 .game-meta { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+.game.is-weekly { box-shadow: inset 3px 0 0 var(--primary); }
+.weekly-line { font-size: 12.5px; color: var(--text-2); margin-top: 6px; line-height: 1.55; }
+.weekly-line b { color: var(--text); }
+.prize-text { color: var(--prize); font-weight: 700; }
 .game-body { flex: 1; min-width: 0; }
 .game-actions { display: flex; gap: 2px; flex: none; }
 .game-actions .icon-btn { width: 40px; height: 40px; background: transparent; border: 0; }
