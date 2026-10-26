@@ -1,4 +1,4 @@
-// 억지 분석 기록을 analysis/ 폴더에 씁니다. 사이트와 같은 규칙(js/rules.js)을 씁니다.
+// 패턴 분석 기록을 analysis/ 폴더에 씁니다. 사이트와 같은 규칙(js/rules.js)을 씁니다.
 // - analysis/<회차>.md : 그 회차의 기록. 한 번 쓰면 다시 덮어쓰지 않습니다(그 주의 기록을 그대로 남김).
 // - analysis/README.md : 회차별 기록 목록과 규칙 성적표. 실행할 때마다 새로 씁니다.
 // 실행: node scripts/analyze.mjs
@@ -28,11 +28,11 @@ function roundPage(idx) {
   const missed = res.rules.filter((r) => !r.hits[idx]);
   const born = res.rules.filter((r) => r.since === d.round);
   return [
-    `# ${d.round}회 억지 분석 (${d.date})`,
+    `# ${d.round}회 패턴 분석 (${d.date})`,
     '',
     `당첨번호: **${d.numbers.join(' · ')}** + 보너스 **${d.bonus}**`,
     '',
-    '> 당첨번호를 보고 나서 끼워 맞춘 규칙들로 이 회차를 풀이한 기록입니다. 예측이 아니라 재미와 기록용이에요.',
+    '> 역대 당첨번호에서 찾은 패턴 규칙들로 이 회차를 풀이한 기록입니다. 예측이 아니라 기록용이에요.',
     '',
     '## 한 줄 해설',
     '',
@@ -51,7 +51,7 @@ function roundPage(idx) {
     ...(born.length ? [
       `## 이번 회차를 보고 새로 만든 규칙 ${born.length}개`,
       '',
-      `이 규칙들은 ${d.round}회 번호를 본 뒤에 만들었기 때문에 ${d.round}회까지의 결과는 끼워 맞춘 기록이에요. ${d.round + 1}회부터 "발견 후 성적"으로 따로 셉니다.`,
+      `이 규칙들은 ${d.round}회 번호를 본 뒤에 만들었기 때문에 ${d.round}회까지의 결과는 규칙을 찾을 때 이미 본 기록이에요. ${d.round + 1}회부터 "발견 후 성적"으로 따로 셉니다.`,
       '',
       born.map((r) => r.name).join(' · '),
       '',
@@ -78,13 +78,13 @@ const logged = [];
 for (let i = last; i >= 0 && draws[i].round >= FIRST; i--) logged.push(i);
 const board = res.rules.slice().sort((a, b) => (b.after.n ? b.after.hit / b.after.n : -1) - (a.after.n ? a.after.hit / a.after.n : -1) || a.rate - b.rate);
 const readme = [
-  '# 억지 분석 기록',
+  '# 패턴 분석 기록',
   '',
-  '당첨번호를 **보고 나서** 끼워 맞춘 규칙들을 모아, 매주 새 회차에 적용한 기록입니다. 예측이 아니라 재미와 기록용이에요.',
+  '역대 당첨번호에서 찾은 패턴 규칙들을 모아, 매주 새 회차에 적용한 기록입니다. 예측이 아니라 기록용이에요.',
   '',
-  '- 매주 당첨번호를 수집할 때 GitHub Actions가 자동으로 이 폴더를 갱신합니다. 사이트의 **통계 → 억지 분석 기록** 카드와 같은 규칙(`js/rules.js`)을 씁니다.',
+  '- 매주 당첨번호를 수집할 때 GitHub Actions가 자동으로 이 폴더를 갱신합니다. 사이트의 **통계 → 패턴 분석 기록** 카드와 같은 규칙(`js/rules.js`)을 씁니다.',
   '- **역대 적중률**: 1회부터 지금까지 그 규칙이 맞은 비율',
-  '- **발견 후 성적**: 규칙을 만든 회차 *다음*부터의 성적. 끼워 맞춘 규칙이라면 발견 후 성적은 역대 적중률 근처로 돌아와야 해요.',
+  '- **발견 후 성적**: 규칙을 만든 회차 *다음*부터의 성적. 우연히 보인 패턴이라면 발견 후 성적은 역대 적중률 근처로 돌아와요.',
   '',
   `## 최신: ${draws[last].round}회 (${draws[last].date})`,
   '',
@@ -107,4 +107,4 @@ const readme = [
 ].join('\n');
 await writeFile(resolve(OUT, 'README.md'), readme);
 
-console.log(`억지 분석: 규칙 ${res.rules.length}개, 새 기록 ${written.length ? written.join(', ') + '회' : '없음'}, 최신 ${draws[last].round}회 ${res.perRound[last]}개 적중`);
+console.log(`패턴 분석: 규칙 ${res.rules.length}개, 새 기록 ${written.length ? written.join(', ') + '회' : '없음'}, 최신 ${draws[last].round}회 ${res.perRound[last]}개 적중`);

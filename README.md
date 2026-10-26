@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 홈 | `index.html` | 최신 당첨번호와 1등 당첨금·다음 추첨 카운트다운, **기능 지도**(모든 기능 12개 바로가기), 내 번호 결과 요약, 빠른 번호 뽑기(5게임) |
 | 번호 생성 | `combiner.html` | 고정수·제외수 지정, 홀짝·합계·연속번호(2~6개)·같은 끝자리(2~5개)·지난 회차 조건, 1/5/10게임 생성 후 복사·저장, **사주로 만들기**(양력·음력 생년월일·시 → 사주팔자 → 이번 주 번호 6개와 강력한 번호, 같은 주에는 항상 같은 번호) |
-| 통계 | `stats.html` (탭: 번호 통계 · 내 번호 찾기 · 억지 분석) | 기간(전체/100/50/10회)별 번호 출현 지도, 많이 나온·오래 안 나온 번호, 번호대·홀짝·합계·연속·끝자리 분포, 내 번호와 가장 많이 맞은 회차, **억지 분석 기록** |
+| 통계 | `stats.html` (탭: 번호 통계 · 내 번호 찾기 · 패턴 분석) | 기간(전체/100/50/10회)별 번호 출현 지도, 많이 나온·오래 안 나온 번호, 번호대·홀짝·합계·연속·끝자리 분포, 내 번호와 가장 많이 맞은 회차, **패턴 분석 기록** |
 | 당첨 조회 | `simulator.html` | 회차별 당첨번호와 1~5등 당첨금·당첨자 수, 내 번호 6개를 역대 전 회차에 맞춰 본 결과, **로또 용지 QR**(카메라·사진·주소)로 당첨 확인 |
 | 보관함 | `vault.html` | 저장한 번호와 저장 뒤 첫 추첨의 당첨 결과, **매주 구매** 번호는 저장 뒤 모든 회차의 누적 결과(구입액·당첨금·최고 등수), 복사·삭제, **백업·옮기기**(파일 내보내기·가져오기, 옮기기 링크) |
 
@@ -42,11 +42,11 @@ js/vendor/jsQR.min.js  QR 읽기 라이브러리 (jsQR 1.4.0, Apache-2.0, QR 화
 js/vendor/korean-lunar-calendar.min.js  음력→양력 변환 (0.4.0, MIT, 한국천문연구원 기준, 음력 입력 때만 불러옴)
 data/lotto.json        역대 당첨번호 (자동 갱신)
 scripts/fetch-lotto.mjs  당첨번호 수집 스크립트
-js/rules.js            억지 분석 규칙 (사이트와 GitHub 기록이 함께 씀)
-js/rules-worker.js     억지 분석 계산을 백그라운드에서 돌리는 Web Worker
+js/rules.js            패턴 분석 규칙 (사이트와 GitHub 기록이 함께 씀)
+js/rules-worker.js     패턴 분석 계산을 백그라운드에서 돌리는 Web Worker
 js/saju.js             사주팔자 계산과 사주 번호 (절기·일주·시주, 오행 → 번호)
-scripts/analyze.mjs    억지 분석 기록을 analysis/에 쓰는 스크립트
-analysis/              회차별 억지 분석 기록과 규칙 성적표 (자동 갱신)
+scripts/analyze.mjs    패턴 분석 기록을 analysis/에 쓰는 스크립트
+analysis/              회차별 패턴 분석 기록과 규칙 성적표 (자동 갱신)
 ```
 
 ## GitHub Pages로 임시 사이트 열기
@@ -60,7 +60,7 @@ analysis/              회차별 억지 분석 기록과 규칙 성적표 (자�
 
 `data/lotto.json`에 1회부터 최신 회차까지의 당첨번호가 저장되고, 매주 자동으로 갱신됩니다.
 
-- GitHub Actions(`.github/workflows/update-lotto.yml`)가 토요일 21:07·21:47·22:37, 일요일 00:07·09:07·15:07(한국 시간)에 `scripts/fetch-lotto.mjs`를 실행하고(이미 받았으면 바로 끝남), 이어서 `scripts/analyze.mjs`로 [억지 분석 기록](analysis/README.md)을 갱신합니다.
+- GitHub Actions(`.github/workflows/update-lotto.yml`)가 토요일 21:07·21:47·22:37, 일요일 00:07·09:07·15:07(한국 시간)에 `scripts/fetch-lotto.mjs`를 실행하고(이미 받았으면 바로 끝남), 이어서 `scripts/analyze.mjs`로 [패턴 분석 기록](analysis/README.md)을 갱신합니다.
 - 스크립트는 동행복권에서 파일에 없는 회차만 받아 추가하고, 변경이 있으면 저장소에 커밋합니다.
 - 바로 갱신하고 싶으면 저장소의 `Actions` → `로또 당첨번호 갱신` → `Run workflow`를 누릅니다.
 - 사이트에서는 `fetch('data/lotto.json')`으로 읽습니다. 형식은 회차당 한 줄이고, `prizes`와 `winners`는 1~5등 1인당 당첨금과 당첨자 수입니다.

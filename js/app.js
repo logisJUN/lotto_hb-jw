@@ -1042,7 +1042,7 @@
     });
   }
 
-  /* 통계: 억지 분석 기록 (규칙은 js/rules.js, GitHub 기록은 scripts/analyze.mjs가 같은 규칙으로 만듭니다) */
+  /* 통계: 패턴 분석 기록 (규칙은 js/rules.js, GitHub 기록은 scripts/analyze.mjs가 같은 규칙으로 만듭니다) */
   // 전 회차 × 규칙 계산은 느린 휴대폰에서 0.5초 넘게 걸려, 화면이 멈추지 않도록 Web Worker에서 돌립니다.
   function computeRules(draws, done) {
     var fallback = function () { setTimeout(function () { done(window.LottoRules.evaluate(draws)); }, 0); };
@@ -1103,7 +1103,7 @@
         '<div class="tile"><span>최근 10회</span><b class="num">' + r.recent10 + ' / 10</b></div>' +
         '<div class="tile"><span>연속 적중</span><b class="num">' + r.streak + '회째</b></div></div>' +
         '<p class="group-label">최근에 맞은 회차</p><ul class="hit-list">' + (recent.join('') || '<li class="muted">아직 없어요</li>') + '</ul>' +
-        '<p class="hint" style="margin-top:12px">' + r.since + '회까지는 규칙을 만들 때 이미 본 결과라 끼워 맞춘 기록이에요. ' + (r.since + 1) + '회부터의 "발견 후" 비율이 역대 비율과 비슷하면, 그 규칙은 그냥 원래 그만큼 일어나는 일이라는 뜻이에요.</p>';
+        '<p class="hint" style="margin-top:12px">' + r.since + '회까지는 규칙을 만들 때 이미 본 결과예요. ' + (r.since + 1) + '회부터의 "발견 후" 비율이 역대 비율과 비슷하면, 그 규칙은 그냥 원래 그만큼 일어나는 일이라는 뜻이에요.</p>';
       sheet.showModal();
     });
     render();

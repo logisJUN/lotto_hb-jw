@@ -1,8 +1,8 @@
-/* 로또랩 - 억지 분석 규칙
-   당첨번호를 "보고 나서" 끼워 맞춘 규칙 모음입니다. 재미와 기록용이며 예측에 쓰지 않습니다.
+/* 로또랩 - 패턴 분석 규칙
+   역대 당첨번호에서 찾은 패턴 규칙 모음입니다. 기록용이며 예측에 쓰지 않습니다.
    - 사이트(통계 탭)와 GitHub 기록(scripts/analyze.mjs)이 이 파일 하나를 같이 씁니다.
    - 규칙을 추가할 때는 맨 아래에 붙이고 since에 "그 규칙을 만든 회차"를 적습니다.
-     since 이전 결과는 끼워 맞춘 기록이고, since 다음 회차부터가 진짜 성적입니다.
+     since 이전 결과는 규칙을 찾을 때 이미 본 기록이고, since 다음 회차부터가 진짜 성적입니다.
    - test(c)는 맞으면 짧은 근거 문자열(예: "1+2+4+7=14"), 아니면 빈 문자열을 돌려줍니다.
      c: { d: 이번 회차, prev: 직전 회차, i: 위치, draws: 전체, past: 이번 회차 이전까지의 누적 정보 } */
 (function (root) {
@@ -27,7 +27,7 @@
   function month(d) { return +d.date.slice(5, 7); }
 
   var RULES = [
-    // ---------- 날짜·회차로 끼워 맞추기 ----------
+    // ---------- 날짜·회차 패턴 ----------
     { id: 'round-digit-sum', group: '날짜·회차', since: 1247, name: '회차 자릿수 합이 당첨번호에',
       desc: '회차 번호의 각 자리를 더한 값이 당첨번호에 있어요.',
       test: function (c) { var s = digitSum(c.d.round); return has(c.d.numbers, s) ? String(c.d.round).split('').join('+') + '=' + s : ''; } },
@@ -53,7 +53,7 @@
       desc: '회차를 이루는 숫자(0 제외) 중 2개 이상이 그대로 당첨번호에 있어요. 예: 1247회 → 1·2·4·7',
       test: function (c) { var ds = String(c.d.round).split('').map(Number).filter(function (x, k, a) { return x && a.indexOf(x) === k; }); var h = ds.filter(function (x) { return has(c.d.numbers, x); }); return h.length >= 2 ? list(h) : ''; } },
 
-    // ---------- 산수로 끼워 맞추기 ----------
+    // ---------- 산수 패턴 ----------
     { id: 'a-plus-b', group: '산수', since: 1247, name: '두 번호의 합이 다른 당첨번호',
       desc: '당첨번호 두 개를 더하면 또 다른 당첨번호가 돼요.',
       test: function (c) { var N = c.d.numbers; return list(pairs(N, function (a, b) { return has(N, a + b) ? a + '+' + b + '=' + (a + b) : ''; })); } },
@@ -152,7 +152,7 @@
       desc: '1~10/11~20/21~30/31~40/41~45에 몇 개씩 나왔는지의 모양이 예전엔 1% 미만이었어요.',
       test: function (c) { if (c.i < 100) return ''; var k = zoneKey(c.d.numbers), n = c.past.shapes[k] || 0; return n / c.i < 0.01 ? k + ' (예전 ' + n + '번)' : ''; } },
 
-    // ---------- 모양으로 끼워 맞추기 ----------
+    // ---------- 모양 패턴 ----------
     { id: 'empty-30s', group: '모양', since: 1247, name: '31~40이 텅 빔',
       desc: '31부터 40 사이 번호가 하나도 없어요.',
       test: function (c) { return c.d.numbers.every(function (n) { return n < 31 || n > 40; }) ? '31~40: 0개' : ''; } },
@@ -235,7 +235,7 @@
     var counts = result.perRound.slice(0, idx), avg = counts.length ? counts.reduce(function (x, y) { return x + y; }, 0) / counts.length : 0;
     var rare = hits.filter(function (r) { return r.rate < 0.1; }).slice(0, 2);
     var text = result.rules.length + '개 규칙 중 ' + hits.length + '개에 맞았어요(평소 평균 ' + avg.toFixed(1) + '개). ';
-    text += rare.length ? '가장 드문 건 ' + rare.map(function (r) { return '"' + r.name + '"(역대 ' + (r.rate * 100).toFixed(1) + '%)'; }).join(', ') + '이에요.' : '이번엔 드문 억지가 없었어요.';
+    text += rare.length ? '가장 드문 건 ' + rare.map(function (r) { return '"' + r.name + '"(역대 ' + (r.rate * 100).toFixed(1) + '%)'; }).join(', ') + '이에요.' : '이번엔 드문 패턴이 없었어요.';
     return { text: text, hits: hits, avg: avg };
   }
 
