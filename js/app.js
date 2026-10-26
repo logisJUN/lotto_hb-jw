@@ -86,18 +86,25 @@
     copyText(t).then(function (ok) { toast(ok ? sets.length + '게임을 복사했습니다' : '이 브라우저에서는 복사할 수 없습니다'); });
   }
 
-  /* 보관함 (이 기기의 localStorage) */
-  function loadVault() { try { return JSON.parse(localStorage.getItem(VAULT_KEY)) || []; } catch (e) { return []; } }
-  function saveVault(list) { try { localStorage.setItem(VAULT_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } }
+  /* 보관함 (이 기기의 localStorage). 가득 차면 새로 넣지 않고 알립니다(예전 번호를 몰래 지우지 않음). */
+  var VAULT_MAX = 500;
+  function loadVault() { try { return JSON.parse(localStorage.getItem(VAULT_KEY)) || []; } catch { return []; } }
+  function saveVault(list) { try { localStorage.setItem(VAULT_KEY, JSON.stringify(list)); return true; } catch { return false; } }
   // round를 주면 그 회차 용지로 저장합니다(QR 용지). 없으면 저장 뒤 첫 추첨이 대상입니다.
   function addToVault(sets, label, round) {
     var v = loadVault(), t = new Date().toISOString();
+    if (v.length + sets.length > VAULT_MAX) {
+      toast('보관함이 가득 찼어요(최대 ' + VAULT_MAX + '게임). 백업한 뒤 오래된 번호를 지워 주세요');
+      return false;
+    }
     sets.slice().reverse().forEach(function (s) {
       var o = { nums: s.slice().sort(byNum), label: label || '', at: t };
       if (round) o.round = round;
       v.unshift(o);
     });
-    if (saveVault(v.slice(0, 200))) toast('보관함에 ' + sets.length + '게임을 저장했습니다'); else toast('저장 공간을 사용할 수 없습니다');
+    if (saveVault(v)) { toast('보관함에 ' + sets.length + '게임을 저장했습니다'); return true; }
+    toast('저장 공간을 사용할 수 없습니다');
+    return false;
   }
 
   /* 보관함 백업·옮기기
@@ -111,25 +118,27 @@
     var nums = o.nums.map(Number);
     if (!nums.every(function (n) { return n >= 1 && n <= 45 && n % 1 === 0; }) || nums.filter(function (n, i) { return nums.indexOf(n) === i; }).length !== 6) return null;
     var at = new Date(o.at);
-    if (isNaN(at)) return null;
+    // 저장 시각은 로또 시작(2002-12) 이후 ~ 지금(+하루 여유)까지만. 미래 시각으로 내 번호를 밀어내는 링크를 막습니다.
+    if (isNaN(at) || at < new Date('2002-12-01T00:00:00Z') || at.getTime() > Date.now() + DAY) return null;
     var c = { nums: nums.sort(byNum), label: String(o.label || '').slice(0, 40), at: at.toISOString() };
     if (o.weekly) c.weekly = true;
     if (o.round && +o.round > 0 && +o.round % 1 === 0) c.round = +o.round;
     return c;
   }
   function itemKey(o) { return o.nums.join(',') + '|' + (o.round || '') + '|' + o.at; }
-  // items를 보관함에 합칩니다. 결과: {added, dup, bad}
+  // items를 보관함에 합칩니다. 있던 항목은 그대로 두고, 자리가 없으면 넣지 않습니다. 결과: {added, dup, bad, full, failed}
   function mergeVault(items) {
-    var v = loadVault(), keys = {}, res = { added: 0, dup: 0, bad: 0 };
+    var v = loadVault(), keys = {}, res = { added: 0, dup: 0, bad: 0, full: 0, failed: false };
     v.forEach(function (o) { keys[itemKey(o)] = 1; });
     (items || []).forEach(function (raw) {
       var o = cleanItem(raw);
       if (!o) { res.bad++; return; }
       if (keys[itemKey(o)]) { res.dup++; return; }
+      if (v.length >= VAULT_MAX) { res.full++; return; }
       keys[itemKey(o)] = 1; v.push(o); res.added++;
     });
     v.sort(function (a, b) { return Date.parse(b.at) - Date.parse(a.at); });   // 최근에 저장한 번호가 위
-    saveVault(v.slice(0, 300));
+    if (res.added && !saveVault(v)) { res.failed = true; res.added = 0; }
     return res;
   }
   function b64urlEncode(str) { return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
@@ -154,7 +163,7 @@
         var nums = []; for (var k = 0; k < 12; k += 2) nums.push(parseInt(String(x.n).substr(k, 2), 10));
         return { nums: nums, at: new Date(x.t * 1000).toISOString(), label: x.l, weekly: !!x.w, round: x.r };
       }).map(cleanItem).filter(Boolean);
-    } catch (e) { return []; }
+    } catch { return []; }
   }
 
   /* =====================================================
@@ -171,12 +180,18 @@
     return drawsPromise;
   }
   function drawAt(d) { return Date.parse(d.date + 'T00:00:00Z') + DRAW_UTC_MIN * 6e4; }
-  // 다음 추첨: 마지막 추첨 다음 주부터, 추첨 뒤 3시간(결과 집계)이 지나지 않은 첫 추첨
-  function nextDraw(last) {
-    var at = drawAt(last) + 7 * DAY, round = last.round + 1, now = Date.now();
-    while (at + 3 * 3600e3 < now) { at += 7 * DAY; round++; }
+  // ms 시각 뒤에 열리는 첫 추첨 {round, at}. 마지막으로 수집한 회차부터 7일씩 세어 갑니다.
+  function drawAfter(last, ms) {
+    var at = drawAt(last), round = last.round;
+    while (at <= ms) { at += 7 * DAY; round++; }
     return { round: round, at: at };
   }
+  // 다음 추첨: 지금 이후 첫 추첨
+  function nextDraw(last) { return drawAfter(last, Date.now()); }
+  // 추첨은 끝났지만 아직 수집되지 않은 회차(예: 토요일 밤~수집 전). 없으면 null
+  function pendingDraw(last) { return nextDraw(last).round > last.round + 1 ? { round: last.round + 1, at: drawAt(last) + 7 * DAY } : null; }
+  // round 회차의 추첨 시각 (마지막 수집 회차 기준)
+  function roundAt(last, round) { return drawAt(last) + (round - last.round) * 7 * DAY; }
   function kstDateText(ms) {
     var d = new Date(ms + 9 * 3600e3);
     return (d.getUTCMonth() + 1) + '월 ' + d.getUTCDate() + '일 (' + WEEK[d.getUTCDay()] + ') 오후 8:35';
@@ -228,7 +243,7 @@
     ['vault', 'vault.html', '보관함', 'bookmark']
   ];
   var THEME_NAME = { system: '기기 설정', light: '라이트', dark: '다크' };
-  function themePref() { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch (e) { return 'system'; } }
+  function themePref() { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch { return 'system'; } }
   function applyTheme(pref) {
     var t = pref === 'light' || pref === 'dark' ? pref : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', t);
@@ -250,7 +265,7 @@
         '<button class="icon-btn" id="theme-btn" type="button"></button>';
       $('#theme-btn').addEventListener('click', function () {
         var order = ['system', 'light', 'dark'], next = order[(order.indexOf(themePref()) + 1) % 3];
-        try { if (next === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next); } catch (e) {}
+        try { if (next === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next); } catch {}
         applyTheme(next);
         toast('화면 테마: ' + (next === 'system' ? '기기 설정을 따름' : THEME_NAME[next]));
       });
@@ -268,8 +283,9 @@
     }).join('');
 
     loadDraws().then(function (draws) {
-      var next = nextDraw(draws[draws.length - 1]), now = Date.now(), days = kstDay(next.at) - kstDay(now);
-      $('#next-sub').innerHTML = '제 <b>' + next.round + '회</b> 추첨 ' + (next.at <= now ? '결과 집계 중' : days === 0 ? '오늘 저녁' : 'D-' + days);
+      var last = draws[draws.length - 1], next = nextDraw(last), pend = pendingDraw(last), days = kstDay(next.at) - kstDay(Date.now());
+      $('#next-sub').innerHTML = pend ? '제 <b>' + pend.round + '회</b> 결과 수집 중'
+        : '제 <b>' + next.round + '회</b> 추첨 ' + (days === 0 ? '오늘 저녁' : 'D-' + days);
     }).catch(function () { $('#next-sub').textContent = '당첨 데이터를 불러오지 못했습니다'; });
   }
 
@@ -383,7 +399,7 @@
     return jsQRPromise;
   }
   var detector = null;
-  try { if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+  try { if ('BarcodeDetector' in window) detector = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch { detector = null; }
   // source(video·img·canvas)에서 QR 글자를 읽어 돌려줍니다. 못 찾으면 null.
   function readQR(source, w, h, canvas) {
     if (detector) {
@@ -412,8 +428,9 @@
     else for (var i = draws.length - 1; i >= 0 && drawAt(draws[i]) > at; i--) first = i;
     var after = draws.slice(first);                     // 대상 회차들 (오래된 회차부터)
     if (!after.length) {
-      var nr = o.round || nextDraw(draws[draws.length - 1]).round;
-      return { o: o, weekly: !!o.weekly, round: nr, from: nr, count: 0 };
+      // 아직 결과가 없는 대상 회차: 용지 회차, 아니면 "저장한 시각" 뒤의 첫 추첨 (지금 시각 기준이 아님)
+      var latest = draws[draws.length - 1], nr = o.round || drawAfter(latest, at).round;
+      return { o: o, weekly: !!o.weekly, round: nr, from: nr, count: 0, pending: roundAt(latest, nr) <= Date.now() };
     }
     if (!o.weekly) {
       var t = after[0];
@@ -439,7 +456,7 @@
     return t;
   }
   function vaultRowHTML(r, i, withActions) {
-    var badge = !r.draw ? '<span class="badge wait">' + r.round + '회 추첨 대기</span>'
+    var badge = !r.draw ? '<span class="badge wait">' + r.round + (r.pending ? '회 결과 수집 중' : '회 추첨 대기') + '</span>'
       : r.rank ? '<span class="badge win">' + r.round + '회 ' + RANK_TEXT[r.rank] + '</span>'
         : '<span class="badge">' + r.round + '회 낙첨</span>';
     var d = new Date(r.o.at);
@@ -449,7 +466,7 @@
       weekly = '<div class="weekly-line">' + (r.count
         ? '<b>' + r.from + '~' + r.round + '회 ' + r.count + '번 구매</b> · 구입 ' + won(r.spent) + ' · 당첨 <span class="' + (r.prize ? 'prize-text' : '') + '">' + won(r.prize) + '</span>' +
           (r.wins ? ' (' + r.wins + '번) · 최고 ' + RANK_TEXT[r.best] + ' (' + r.bestDraw.round + '회)' : ' · 아직 당첨 없음')
-        : '<b>' + r.from + '회부터 매주 확인</b> · 첫 추첨을 기다리는 중') + '</div>';
+        : '<b>' + r.from + '회부터 매주 확인</b> · ' + (r.pending ? '첫 결과를 수집하는 중' : '첫 추첨을 기다리는 중')) + '</div>';
     }
     return '<div class="game' + (r.weekly ? ' is-weekly' : '') + '"><div class="game-body">' +
       balls(r.o.nums, { size: 'sm', nowrap: true, hits: r.draw ? r.hits : null }) +
@@ -494,7 +511,7 @@
 
     loadDraws().then(function (draws) {
       lastDraws = draws;
-      var d = draws[draws.length - 1], next = nextDraw(d);
+      var d = draws[draws.length - 1], next = nextDraw(d), pend = pendingDraw(d);
       var first = d.prizes ? d.prizes[0] : d.firstPrize, winners = d.winners ? d.winners[0] : d.firstWinners;
       heroEl.innerHTML =
         '<div class="card-head"><div><p class="card-sub">' + fmtDate(d.date, true) + ' 추첨</p><h2 class="card-title" style="font-size:22px">제 ' + d.round + '회 당첨번호</h2></div>' +
@@ -502,6 +519,7 @@
         balls(d.numbers, { bonus: d.bonus, size: 'lg', nowrap: true }) +
         '<div class="hero-meta"><div class="hero-stat"><span>1등 당첨금 (1인)</span><b class="num">' + (first ? won(first) : '-') + '</b></div>' +
         '<div class="hero-stat"><span>1등 당첨자</span><b class="num">' + (winners != null ? winners + '명' : '-') + '</b></div></div>' +
+        (pend ? '<p class="hero-note">제 ' + pend.round + '회(' + kstDateText(pend.at).split(' 오후')[0] + ') 결과를 수집하고 있어요. 보통 추첨 다음 날까지 반영돼요.</p>' : '') +
         '<a class="btn btn-sm hero-btn" href="simulator.html#qr">' + icon('qr', 16) + '내 용지 QR로 당첨 확인</a>';
       $('#count-title').textContent = '제 ' + next.round + '회 추첨까지';
       $('#count-date').textContent = kstDateText(next.at);
@@ -525,7 +543,7 @@
       $$('#gen-tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
       $('#tab-cond').hidden = name !== 'cond';
       $('#tab-saju').hidden = name !== 'saju';
-      try { history.replaceState(null, '', name === 'saju' ? '#saju' : location.pathname); } catch (e) {}
+      try { history.replaceState(null, '', name === 'saju' ? '#saju' : location.pathname); } catch {}
     }
     $$('#gen-tabs button').forEach(function (b) { b.addEventListener('click', function () { showGenTab(b.getAttribute('data-tab')); }); });
     showGenTab(location.hash === '#saju' ? 'saju' : 'cond');
@@ -697,7 +715,7 @@
     var today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
     dateEl.max = today;
     hourEl.innerHTML = '<option value="">모름</option>' + S.HOURS.map(function (h, i) { return '<option value="' + i + '">' + h + '</option>'; }).join('');
-    var saved; try { saved = JSON.parse(localStorage.getItem(SAJU_KEY)); } catch (e) {}
+    var saved; try { saved = JSON.parse(localStorage.getItem(SAJU_KEY)); } catch {}
     if (saved && saved.date) { dateEl.value = saved.date; hourEl.value = saved.hour == null ? '' : String(saved.hour); }
 
     function check() {
@@ -717,11 +735,11 @@
       e.preventDefault();
       if (!check()) { dateEl.focus(); return; }
       var hour = hourEl.value === '' ? null : +hourEl.value;
-      try { localStorage.setItem(SAJU_KEY, JSON.stringify({ date: dateEl.value, hour: hour })); } catch (er) {}
+      try { localStorage.setItem(SAJU_KEY, JSON.stringify({ date: dateEl.value, hour: hour })); } catch {}
       render(dateEl.value, hour, true);
     });
 
-    function pillarCell(label, p, unknown) {
+    function pillarCell(label, p) {
       if (!p) return '<div class="pillar unknown"><span class="pl">' + label + '</span><div class="gz"><b>?</b><small>모름</small></div><div class="gz"><b>?</b><small>모름</small></div></div>';
       return '<div class="pillar"><span class="pl">' + label + '</span>' +
         '<div class="gz el-' + S.STEM_EL[p.stem] + '"><b>' + S.STEMS_H[p.stem] + '</b><small>' + S.STEMS[p.stem] + ' · ' + S.EL[S.STEM_EL[p.stem]] + '</small></div>' +
@@ -829,7 +847,7 @@
         for (n = 1; n <= 45; n++) {
           var t = maxF > minF ? (freq[n] - minF) / (maxF - minF) : 0, mix = Math.round(6 + t * 94);
           heat += '<button type="button" data-n="' + n + '" aria-pressed="' + (n === selected) + '" aria-label="' + n + '번, ' + freq[n] + '회 출현"' +
-            ' style="background:color-mix(in srgb, var(--heat-1) ' + mix + '%, var(--heat-0));' + (mix > 55 ? 'color:#fff' : '') + '">' + n + '</button>';
+            ' style="--t:' + (mix / 100).toFixed(2) + (mix > 55 ? ';color:#fff' : '') + '">' + n + '</button>';
         }
         var gap = latest - (lastSeen[selected] || 0);
         var sec = [];
@@ -886,7 +904,7 @@
       });
       render();
       initBestMatch(draws);
-      setTimeout(function () { initRules(draws); }, 0);   // 규칙 계산(0.2초 안팎)은 첫 화면을 그린 뒤에
+      initRules(draws);
     }).catch(function () { loadError(root); });
   }
 
@@ -938,9 +956,23 @@
   }
 
   /* 통계: 억지 분석 기록 (규칙은 js/rules.js, GitHub 기록은 scripts/analyze.mjs가 같은 규칙으로 만듭니다) */
+  // 전 회차 × 규칙 계산은 느린 휴대폰에서 0.5초 넘게 걸려, 화면이 멈추지 않도록 Web Worker에서 돌립니다.
+  function computeRules(draws, done) {
+    var fallback = function () { setTimeout(function () { done(window.LottoRules.evaluate(draws)); }, 0); };
+    if (!window.Worker) { fallback(); return; }
+    try {
+      var w = new Worker('js/rules-worker.js');
+      w.onmessage = function (e) { w.terminate(); done(e.data); };
+      w.onerror = function () { w.terminate(); fallback(); };
+      w.postMessage(draws);
+    } catch { fallback(); }
+  }
   function initRules(draws) {
     if (!window.LottoRules) return;
-    var res = window.LottoRules.evaluate(draws), idx = draws.length - 1, showAll = false;
+    computeRules(draws, function (res) { showRules(draws, res); });
+  }
+  function showRules(draws, res) {
+    var idx = draws.length - 1, showAll = false;
     var sheet = $('#rule-sheet');
     function pctTxt(x) { return (x * 100).toFixed(1) + '%'; }
     function afterTxt(r) { return r.after.n ? r.after.hit + '/' + r.after.n + '회' : '아직 없음'; }
@@ -1000,7 +1032,7 @@
       $('#tab-round').hidden = name !== 'round';
       $('#tab-mine').hidden = name !== 'mine';
       $('#tab-qr').hidden = name !== 'qr';
-      try { history.replaceState(null, '', name === 'round' ? location.pathname : '#' + name); } catch (e) {}
+      try { history.replaceState(null, '', name === 'round' ? location.pathname : '#' + name); } catch {}
     }
     $$('#check-tabs button').forEach(function (b) { b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); }); });
     showTab(location.hash === '#mine' ? 'mine' : location.hash === '#qr' ? 'qr' : 'round');
@@ -1126,7 +1158,9 @@
       sheet.showModal();
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }).then(function (s) {
         if (!sheet.open) { s.getTracks().forEach(function (t) { t.stop(); }); return; }
-        stream = s; video.srcObject = s; video.play();
+        stream = s; video.srcObject = s;
+        var playing = video.play();
+        if (playing && playing.catch) playing.catch(function () { status.textContent = '카메라 화면을 켜지 못했어요. [사진에서 찾기]를 써 주세요'; });
         status.textContent = '용지의 QR 코드를 네모 안에 맞춰 주세요';
         (function loop() {
           if (!stream) return;
@@ -1196,8 +1230,11 @@
             '<span class="badge ' + (winCount ? 'win' : '') + '">' + (winCount ? winCount + '게임 당첨' : '모두 낙첨') + '</span></div>' +
             '<p class="group-label" style="margin-top:0">당첨번호</p>' + balls(d.numbers, { bonus: d.bonus, size: 'sm', nowrap: true }) +
             '<p class="group-label">내 용지</p>'
-          : '<div class="card-head"><div><p class="card-sub">아직 추첨 전이에요</p><h2 class="card-title" style="font-size:20px">제 ' + t.round + '회 용지 · ' + t.games.length + '게임</h2></div><span class="badge wait">추첨 대기</span></div>' +
-            '<p class="hint" style="margin-bottom:10px">' + (t.round === nextDraw(draws[draws.length - 1]).round ? kstDateText(nextDraw(draws[draws.length - 1]).at) + ' 추첨이에요. ' : '') + '보관함에 저장해 두면 추첨 뒤 자동으로 결과를 보여 드려요.</p>';
+          : (function () {
+            var tAt = roundAt(draws[draws.length - 1], t.round), done = tAt <= Date.now();
+            return '<div class="card-head"><div><p class="card-sub">' + (done ? '추첨은 끝났고 결과를 수집하고 있어요' : '아직 추첨 전이에요') + '</p><h2 class="card-title" style="font-size:20px">제 ' + t.round + '회 용지 · ' + t.games.length + '게임</h2></div><span class="badge wait">' + (done ? '결과 수집 중' : '추첨 대기') + '</span></div>' +
+              '<p class="hint" style="margin-bottom:10px">' + kstDateText(tAt) + ' 추첨' + (done ? '이었어요. ' : '이에요. ') + '보관함에 저장해 두면 결과가 들어오는 대로 자동으로 보여 드려요.</p>';
+          })();
         box.hidden = false;
         box.innerHTML = head + '<div class="games">' + rows + '</div>' +
           (d ? '<div class="tiles" style="margin-top:14px"><div class="tile"><span>총 당첨금</span><b class="num ' + (total ? 'prize' : '') + '">' + comma(total) + '원</b></div>' +
@@ -1255,16 +1292,22 @@
     $('#vault-copy').addEventListener('click', function () { copySets(loadVault().map(function (o) { return o.nums; })); });
     // ---------- 백업·옮기기 ----------
     function lastBackupText() {
-      var t; try { t = localStorage.getItem(BACKUP_KEY); } catch (e) {}
+      var t; try { t = localStorage.getItem(BACKUP_KEY); } catch {}
       var d = t ? new Date(t) : null;
       $('#backup-last').textContent = d && !isNaN(d) ? '마지막 백업: ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) : '아직 백업하지 않았어요';
       var empty = !loadVault().length;
       $('#backup-export').disabled = empty; $('#backup-link').disabled = empty;
     }
-    function markBackup() { try { localStorage.setItem(BACKUP_KEY, new Date().toISOString()); } catch (e) {} lastBackupText(); }
+    function markBackup() { try { localStorage.setItem(BACKUP_KEY, new Date().toISOString()); } catch {} lastBackupText(); }
     function report(r) {
-      toast(r.added ? r.added + '게임을 가져왔어요' + (r.dup ? ' (이미 있는 ' + r.dup + '게임 제외)' : '')
-        : r.dup ? '모두 이미 보관함에 있는 번호예요' : '가져올 번호가 없어요');
+      var extra = [];
+      if (r.dup) extra.push('이미 있는 ' + r.dup + '게임');
+      if (r.bad) extra.push('잘못된 ' + r.bad + '게임');
+      if (r.full) extra.push('자리가 없어 ' + r.full + '게임');
+      toast(r.failed ? '저장 공간이 부족해 가져오지 못했어요'
+        : r.added ? r.added + '게임을 가져왔어요' + (extra.length ? ' (' + extra.join(', ') + ' 제외)' : '')
+          : r.full ? '보관함이 가득 차서(최대 ' + VAULT_MAX + '게임) 가져오지 못했어요'
+            : r.dup ? '모두 이미 보관함에 있는 번호예요' : '가져올 수 있는 번호가 없어요');
       draw(); lastBackupText();
     }
     // 1) 파일로 내보내기: 휴대폰은 공유 창(파일 앱·메신저 등), 그 밖에는 내려받기
@@ -1273,7 +1316,7 @@
       var now = new Date(), name = 'lottolab-backup-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.json';
       var text = JSON.stringify({ app: 'lottolab', version: 1, exportedAt: now.toISOString(), items: v }, null, 2);
       var file = null;
-      try { file = new File([text], name, { type: 'application/json' }); } catch (e) {}
+      try { file = new File([text], name, { type: 'application/json' }); } catch {}
       if (file && navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
         navigator.share({ files: [file], title: '로또랩 보관함 백업' }).then(function () { markBackup(); toast('백업 파일을 보냈어요'); }, function () {});
         return;
@@ -1290,7 +1333,7 @@
       if (!f) return;
       var rd = new FileReader();
       rd.onload = function () {
-        var data; try { data = JSON.parse(rd.result); } catch (e) { toast('로또랩 백업 파일이 아니에요'); return; }
+        var data; try { data = JSON.parse(rd.result); } catch { toast('로또랩 백업 파일이 아니에요'); return; }
         var items = Array.isArray(data) ? data : data && Array.isArray(data.items) ? data.items : null;
         if (!items) { toast('로또랩 백업 파일이 아니에요'); return; }
         report(mergeVault(items));
@@ -1301,13 +1344,14 @@
     // 3) 옮기기 링크: 링크 하나에 보관함 전체를 담습니다. 휴대폰은 공유 창, 그 밖에는 복사
     $('#backup-link').addEventListener('click', function () {
       var v = loadVault(); if (!v.length) return;
-      var url = vaultLink(v);
+      var url = vaultLink(v), long = url.length > 8000;
+      if (long) toast('번호가 많아 링크가 길어요(' + comma(url.length) + '자). 메신저에서 잘릴 수 있으니 [파일로 내보내기]를 권해요');
       if (navigator.share) {
         navigator.share({ title: '로또랩 보관함', text: '로또랩 보관함 ' + v.length + '게임', url: url }).then(function () { markBackup(); }, function () {});
         return;
       }
       copyText(url).then(function (ok) {
-        if (ok) { markBackup(); toast('옮기기 링크를 복사했어요. 다른 기기에서 열면 보관함에 넣을 수 있어요'); }
+        if (ok) { markBackup(); if (!long) toast('옮기기 링크를 복사했어요. 다른 기기에서 열면 보관함에 넣을 수 있어요'); }
         else window.prompt('아래 링크를 복사해 다른 기기에서 열어 주세요', url);
       });
     });
@@ -1316,12 +1360,13 @@
     if (incoming) {
       var box = $('#vault-import');
       box.hidden = false;
-      var clearHash = function () { try { history.replaceState(null, '', location.pathname); } catch (e) {} box.hidden = true; };
+      var clearHash = function () { try { history.replaceState(null, '', location.pathname); } catch {} box.hidden = true; };
       if (!incoming.length) {
-        box.innerHTML = '<p class="muted">링크가 잘렸거나 올바르지 않아요. 보낸 사람에게 링크를 다시 받아 주세요.</p>' +
+        box.innerHTML = '<p class="muted">이 링크에는 넣을 수 있는 번호가 없어요. 링크가 잘렸거나, 저장 시각이 미래로 되어 있는 등 올바르지 않은 항목뿐이에요. 보낸 사람에게 다시 받아 주세요.</p>' +
           '<div class="btn-row" style="margin-top:12px"><button class="btn btn-secondary" type="button" id="import-cancel">닫기</button></div>';
       } else {
-        box.innerHTML = '<div class="card-head"><div><h2 class="card-title">링크로 받은 번호 ' + incoming.length + '게임</h2><p class="card-sub">보관함에 넣을까요? 이미 있는 번호는 건너뛰어요.</p></div></div>' +
+        var have = loadVault().length;
+        box.innerHTML = '<div class="card-head"><div><h2 class="card-title">링크로 받은 번호 ' + incoming.length + '게임</h2><p class="card-sub">보관함에 넣을까요? 지금 보관함 ' + have + '게임 · 남은 자리 ' + Math.max(0, VAULT_MAX - have) + '게임. 있던 번호는 지우지 않고, 이미 있는 번호는 건너뛰어요.</p></div></div>' +
           '<div class="games">' + incoming.slice(0, 5).map(function (o) {
             return '<div class="game"><div class="game-body">' + balls(o.nums, { size: 'sm', nowrap: true }) + '<div class="game-meta">' + esc(o.label || '저장') + (o.weekly ? ' · 매주 구매' : '') + (o.round && String(o.label).indexOf(o.round + '회') < 0 ? ' · ' + o.round + '회 용지' : '') + '</div></div></div>';
           }).join('') + '</div>' + (incoming.length > 5 ? '<p class="hint" style="margin-top:8px">외 ' + (incoming.length - 5) + '게임</p>' : '') +

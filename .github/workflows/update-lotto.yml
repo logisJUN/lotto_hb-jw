@@ -2,9 +2,15 @@ name: 로또 당첨번호 갱신
 
 on:
   schedule:
-    # 추첨은 토요일 20:35(KST). 토요일 21:07, 일요일 09:07(KST)에 한 번씩 받습니다.
+    # 추첨은 토요일 20:35(KST). GitHub 예약 실행은 몇 시간씩 늦어질 수 있어 여러 번 시도합니다.
+    # 이미 받았거나 다음 추첨 전이면 스크립트가 바로 끝납니다.
+    # KST: 토 21:07 · 21:47 · 22:37 · 일 00:07 · 09:07 · 15:07 (cron은 UTC)
     - cron: '7 12 * * 6'
+    - cron: '47 12 * * 6'
+    - cron: '37 13 * * 6'
+    - cron: '7 15 * * 6'
     - cron: '7 0 * * 0'
+    - cron: '7 6 * * 0'
   workflow_dispatch:
   push:
     paths:
@@ -25,14 +31,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
 
       - name: 당첨번호 받기
         run: node scripts/fetch-lotto.mjs
+        env:
+          # 손으로 실행(Run workflow)하면 날짜와 상관없이 항상 동행복권에 확인합니다
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
 
       - name: 억지 분석 기록 갱신
         run: node scripts/analyze.mjs
@@ -49,4 +58,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data analysis
           git commit -m "$MSG"
-          git push
+          # 그사이 main에 다른 커밋이 올라왔으면 그 위로 다시 얹어서 올립니다 (최대 3번)
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep $((i * 5))
+          done
+          exit 1

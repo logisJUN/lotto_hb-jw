@@ -25,7 +25,6 @@
   function list(a, sep) { return a.join(sep || ', '); }
   function day(d) { return +d.date.slice(8, 10); }
   function month(d) { return +d.date.slice(5, 7); }
-  function inRange(n) { return n >= 1 && n <= 45; }
 
   var RULES = [
     // ---------- 날짜·회차로 끼워 맞추기 ----------
@@ -209,7 +208,7 @@
     var perRound = [];
     draws.forEach(function (d, i) {
       var c = { d: d, prev: draws[i - 1] || null, i: i, draws: draws, past: past }, count = 0;
-      RULES.forEach(function (r, k) { var h = ''; try { h = r.test(c) || ''; } catch (e) { h = ''; } out[k].hits.push(h); if (h) count++; });
+      RULES.forEach(function (r, k) { var h = ''; try { h = r.test(c) || ''; } catch { h = ''; } out[k].hits.push(h); if (h) count++; });
       perRound.push(count);
       // 이번 회차를 누적 정보에 더합니다 (다음 회차의 "과거")
       var N = d.numbers;

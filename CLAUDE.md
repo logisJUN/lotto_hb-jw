@@ -21,12 +21,14 @@
 - 용지 QR: `parseTicket`(주소의 `v=` → 회차 4자리 + 게임마다 글자 1자·12자리), `readQR`(BarcodeDetector가 없으면 `js/vendor/jsQR.min.js`를 그때 불러옴), 화면은 `initQr`. 외부 CDN은 쓰지 않습니다.
 - `data/lotto.json`: 1회부터 최신 회차까지 당첨번호, 1~5등 당첨금(`prizes`)과 당첨자 수(`winners`). 회차당 한 줄이며 직접 고치지 않습니다.
 - `scripts/fetch-lotto.mjs`: 동행복권 `lt645/selectPstLt645Info.do`에서 새 회차를 받아 `data/lotto.json`에 추가합니다.
-- `.github/workflows/update-lotto.yml`: 매주 토요일 21:07, 일요일 09:07(KST)에 위 스크립트와 `scripts/analyze.mjs`를 실행하고 `data`·`analysis`를 `main`에 커밋합니다.
-- 억지 분석: 규칙은 `js/rules.js`(브라우저·Node 겸용, `evaluate`·`summary`) 하나에 둡니다. 통계 탭 카드는 `initRules`, GitHub 기록은 `scripts/analyze.mjs`가 같은 규칙으로 `analysis/<회차>.md`(한 번 쓰면 덮어쓰지 않음)와 `analysis/README.md`(매번 새로 씀)를 만듭니다. 규칙을 추가할 때는 목록 끝에 붙이고 `since`에 만든 회차를 적으며, 이미 있는 규칙의 `id`·조건은 바꾸지 않습니다(성적 기록이 이어지도록). 예측·추천에는 쓰지 않습니다.
+- `.github/workflows/update-lotto.yml`: 토 21:07·21:47·22:37, 일 00:07·09:07·15:07(KST)에 위 스크립트와 `scripts/analyze.mjs`를 실행하고 `data`·`analysis`를 `main`에 커밋합니다(push 전 `pull --rebase`, 최대 3번). 수집 스크립트는 다음 추첨 전이면 바로 끝나고, 손으로 실행하면(`FORCE=1`) 항상 확인합니다. Actions는 커밋 해시로 고정합니다.
+- 억지 분석: 규칙은 `js/rules.js`(브라우저·Node 겸용, `evaluate`·`summary`) 하나에 둡니다. 통계 탭 카드는 `initRules`(계산은 `js/rules-worker.js` Web Worker, 안 되면 메인 스레드), GitHub 기록은 `scripts/analyze.mjs`가 같은 규칙으로 `analysis/<회차>.md`(한 번 쓰면 덮어쓰지 않음)와 `analysis/README.md`(매번 새로 씀)를 만듭니다. 규칙을 추가할 때는 목록 끝에 붙이고 `since`에 만든 회차를 적으며, 이미 있는 규칙의 `id`·조건은 바꾸지 않습니다(성적 기록이 이어지도록). 예측·추천에는 쓰지 않습니다.
 
 ## 알아둘 점
 
 - 화면의 모든 수치는 `data/lotto.json`으로 계산합니다. 근거 없는 수치나 "당첨 확률을 높인다"는 식의 문구는 넣지 않습니다.
+- 보관함은 최대 `VAULT_MAX`(500)게임입니다. 가득 차면 저장·가져오기를 막고 알리며, 있던 항목을 지우지 않습니다. 결과가 없는 항목의 대상 회차는 **저장 시각** 기준(`drawAfter`)이고, 추첨이 지났는데 데이터가 없으면 "결과 수집 중"(`pendingDraw`, `roundAt`)으로 표시합니다. `nextDraw`는 지금 이후 첫 추첨입니다.
 - 보관함 항목(`lottolab.vault`)은 `{nums, label, at, weekly?, round?}` 형식입니다. `round`가 있으면(QR 용지) 그 회차로, 없으면 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).
-- 보관함 백업: 파일은 `{app:'lottolab', version:1, exportedAt, items}`, 링크는 `vault.html#import=<base64url>`(항목을 `n`·`t`·`l`·`w`·`r`로 줄임). 가져올 때는 `cleanItem`으로 검사하고 `mergeVault`가 번호·회차·저장 시각이 같은 항목을 건너뜁니다. 보관함 항목 형식을 바꾸면 이 세 곳과 `version`도 함께 맞춥니다.
+- 보관함 백업: 파일은 `{app:'lottolab', version:1, exportedAt, items}`, 링크는 `vault.html#import=<base64url>`(항목을 `n`·`t`·`l`·`w`·`r`로 줄임). 가져올 때는 `cleanItem`으로 검사하고(번호, 저장 시각 2002-12 ~ 지금+1일), `mergeVault`가 번호·회차·저장 시각이 같은 항목을 건너뜁니다. 보관함 항목 형식을 바꾸면 이 세 곳과 `version`도 함께 맞춥니다.
+- CSS의 `color-mix`·`cqw`에는 지원하지 않는 브라우저용 기본값(앞줄 값 또는 `@supports not`)을 함께 둡니다.
 - 로컬 확인은 `python3 -m http.server`로 띄워서 합니다. `file://`로 열면 `data/lotto.json`을 읽지 못합니다. 라이트·다크 둘 다 390px 폭에서 확인합니다.

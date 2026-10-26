@@ -65,6 +65,15 @@ function toDraw(d) {
   if (!balls.every((n) => Number.isInteger(n) && n >= 1 && n <= 45) || new Set(balls).size !== 7) {
     throw new Error(`${draw.round}회 번호가 올바르지 않습니다: ${JSON.stringify(d)}`);
   }
+  // 날짜와 금액도 검사합니다. 이상한 값이 사이트 화면(HTML)에 그대로 들어가지 않도록
+  const day = new Date(draw.date + 'T00:00:00Z');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(draw.date) || isNaN(day) || day.toISOString().slice(0, 10) !== draw.date) {
+    throw new Error(`${draw.round}회 추첨일이 올바르지 않습니다: ${d.ltRflYmd}`);
+  }
+  if (!Number.isInteger(draw.round) || draw.round < 1) throw new Error(`회차 번호가 올바르지 않습니다: ${d.ltEpsd}`);
+  if (![...draw.prizes, ...draw.winners, draw.totalSales].every((x) => Number.isInteger(x) && x >= 0)) {
+    throw new Error(`${draw.round}회 당첨금·당첨자 수가 올바르지 않습니다: ${JSON.stringify(d)}`);
+  }
   return draw;
 }
 
@@ -77,6 +86,15 @@ let draws = await loadDraws();
 // 예전 형식(1등 정보만 있는 파일)이면 처음부터 다시 받습니다.
 if (draws.length && !draws[0].prizes) draws = [];
 const start = draws.length ? draws[draws.length - 1].round + 1 : 1;
+
+// 다음 추첨(마지막 회차 + 7일, 토요일 20:35 KST)이 아직이면 동행복권에 묻지 않고 끝냅니다. FORCE=1이면 항상 확인합니다.
+if (draws.length && !process.env.FORCE) {
+  const nextAt = Date.parse(draws[draws.length - 1].date + 'T11:35:00Z') + 7 * 864e5;
+  if (Date.now() < nextAt) {
+    console.log(`다음 추첨(${start}회) 전이라 확인하지 않음`);
+    process.exit(0);
+  }
+}
 const added = (await fetchRange(start, start + 10000)).map(toDraw).sort((a, b) => a.round - b.round);
 
 added.forEach((d, i) => {
