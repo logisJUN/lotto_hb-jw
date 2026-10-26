@@ -20,7 +20,8 @@
 - 용지 QR: `parseTicket`(주소의 `v=` → 회차 4자리 + 게임마다 글자 1자·12자리), `readQR`(BarcodeDetector가 없으면 `js/vendor/jsQR.min.js`를 그때 불러옴), 화면은 `initQr`. 외부 CDN은 쓰지 않습니다.
 - `data/lotto.json`: 1회부터 최신 회차까지 당첨번호, 1~5등 당첨금(`prizes`)과 당첨자 수(`winners`). 회차당 한 줄이며 직접 고치지 않습니다.
 - `scripts/fetch-lotto.mjs`: 동행복권 `lt645/selectPstLt645Info.do`에서 새 회차를 받아 `data/lotto.json`에 추가합니다.
-- `.github/workflows/update-lotto.yml`: 매주 토요일 21:07, 일요일 09:07(KST)에 위 스크립트를 실행하고 `main`에 커밋합니다.
+- `.github/workflows/update-lotto.yml`: 매주 토요일 21:07, 일요일 09:07(KST)에 위 스크립트와 `scripts/analyze.mjs`를 실행하고 `data`·`analysis`를 `main`에 커밋합니다.
+- 억지 분석: 규칙은 `js/rules.js`(브라우저·Node 겸용, `evaluate`·`summary`) 하나에 둡니다. 통계 탭 카드는 `initRules`, GitHub 기록은 `scripts/analyze.mjs`가 같은 규칙으로 `analysis/<회차>.md`(한 번 쓰면 덮어쓰지 않음)와 `analysis/README.md`(매번 새로 씀)를 만듭니다. 규칙을 추가할 때는 목록 끝에 붙이고 `since`에 만든 회차를 적으며, 이미 있는 규칙의 `id`·조건은 바꾸지 않습니다(성적 기록이 이어지도록). 예측·추천에는 쓰지 않습니다.
 
 ## 알아둘 점
 

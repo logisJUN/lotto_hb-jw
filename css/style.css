@@ -499,6 +499,18 @@ details.fold[open] > summary { margin-bottom: 8px; }
 .hero-btn { margin-top: 12px; width: 100%; background: rgba(255,255,255,.16); color: #fff; }
 .hero-btn:hover { background: rgba(255,255,255,.24); }
 .explain form { margin-top: 4px; }
+.round-nav { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; }
+.round-nav .balls { justify-content: center; }
+.rules-summary { margin: 14px 0 10px; font-size: 14px; line-height: 1.6; color: var(--text); }
+.rule-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rule-item { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); min-height: 52px; }
+.rule-item:hover { background: var(--surface-3); }
+.rule-main { min-width: 0; }
+.rule-main b { display: block; font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; }
+.rule-main small { display: block; font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+.rule-list.compact .rule-item { min-height: 44px; padding: 8px 10px; background: var(--surface); }
+.hit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.tile small { display: block; font-size: 12px; margin-top: 2px; }
 .explain { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); }
 .explain summary { font-size: 14px; font-weight: 700; color: var(--text-2); }
 .explain ol { margin: 0; padding-left: 20px; font-size: 13px; color: var(--text-2); line-height: 1.65; display: flex; flex-direction: column; gap: 6px; }

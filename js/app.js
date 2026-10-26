@@ -785,6 +785,7 @@
       });
       render();
       initBestMatch(draws);
+      setTimeout(function () { initRules(draws); }, 0);   // 규칙 계산(0.2초 안팎)은 첫 화면을 그린 뒤에
     }).catch(function () { loadError(root); });
   }
 
@@ -833,6 +834,59 @@
       $('#best-save').addEventListener('click', function () { addToVault([nums], '가장 많이 맞은 회차'); });
       result.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+  }
+
+  /* 통계: 억지 분석 기록 (규칙은 js/rules.js, GitHub 기록은 scripts/analyze.mjs가 같은 규칙으로 만듭니다) */
+  function initRules(draws) {
+    if (!window.LottoRules) return;
+    var res = window.LottoRules.evaluate(draws), idx = draws.length - 1, showAll = false;
+    var sheet = $('#rule-sheet');
+    function pctTxt(x) { return (x * 100).toFixed(1) + '%'; }
+    function afterTxt(r) { return r.after.n ? r.after.hit + '/' + r.after.n + '회' : '아직 없음'; }
+    function rowHTML(r, detail) {
+      return '<li><button type="button" class="rule-item" data-rule="' + r.id + '"><span class="rule-main"><b>' + esc(r.name) + '</b>' +
+        (detail ? '<small>' + esc(detail) + '</small>' : '<small>' + esc(r.group) + ' · 발견 후 ' + afterTxt(r) + '</small>') + '</span>' +
+        '<span class="badge' + (r.rate < 0.1 ? ' prize' : '') + '">역대 ' + pctTxt(r.rate) + '</span></button></li>';
+    }
+    function render() {
+      var d = draws[idx], s = window.LottoRules.summary(res, idx);
+      $('#rules-prev').disabled = idx === 0;
+      $('#rules-next').disabled = idx === draws.length - 1;
+      $('#rules-round').innerHTML = '<p class="muted" style="text-align:center;margin-bottom:6px">' + d.round + '회 · ' + fmtDate(d.date) + (idx === draws.length - 1 ? ' · 최신' : '') + '</p>' +
+        balls(d.numbers, { bonus: d.bonus, size: 'sm', nowrap: true });
+      $('#rules-summary').textContent = s.text;
+      var list = showAll ? s.hits : s.hits.slice(0, 6);
+      $('#rules-hits').innerHTML = list.map(function (r) { return rowHTML(r, r.hits[idx]); }).join('');
+      var more = $('#rules-more');
+      more.hidden = s.hits.length <= 6;
+      more.textContent = showAll ? '접기' : '맞은 규칙 ' + s.hits.length + '개 모두 보기';
+    }
+    $('#rules-table').innerHTML = res.rules.slice().sort(function (a, b) { return a.rate - b.rate; }).map(function (r) { return rowHTML(r); }).join('');
+    $('#rules-prev').addEventListener('click', function () { if (idx > 0) { idx--; showAll = false; render(); } });
+    $('#rules-next').addEventListener('click', function () { if (idx < draws.length - 1) { idx++; showAll = false; render(); } });
+    $('#rules-more').addEventListener('click', function () { showAll = !showAll; render(); });
+
+    // 규칙을 누르면 설명과 성적, 최근에 맞은 회차를 보여 줍니다
+    $('#rule-sheet-close').addEventListener('click', function () { sheet.close(); });
+    sheet.addEventListener('click', function (e) { if (e.target === sheet) sheet.close(); });
+    $('#rules-card').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-rule]'); if (!b) return;
+      var r = res.rules.filter(function (x) { return x.id === b.getAttribute('data-rule'); })[0]; if (!r) return;
+      var recent = [];
+      for (var i = r.hits.length - 1; i >= 0 && recent.length < 8; i--) if (r.hits[i]) recent.push('<li><b class="num">' + draws[i].round + '회</b> <span class="muted">' + esc(r.hits[i]) + '</span></li>');
+      $('#rule-sheet-group').textContent = r.group + ' · ' + r.since + '회에 만든 규칙';
+      $('#rule-sheet-title').textContent = r.name;
+      $('#rule-sheet-body').innerHTML = '<p style="color:var(--text-2);font-size:14px">' + esc(r.desc) + '</p>' +
+        '<div class="tiles" style="margin-top:14px">' +
+        '<div class="tile"><span>역대 적중</span><b class="num">' + pctTxt(r.rate) + '</b><small class="muted">' + r.total + ' / ' + draws.length + '회</small></div>' +
+        '<div class="tile"><span>발견 후 (진짜 성적)</span><b class="num">' + (r.after.n ? pctTxt(r.after.hit / r.after.n) : '-') + '</b><small class="muted">' + afterTxt(r) + '</small></div>' +
+        '<div class="tile"><span>최근 10회</span><b class="num">' + r.recent10 + ' / 10</b></div>' +
+        '<div class="tile"><span>연속 적중</span><b class="num">' + r.streak + '회째</b></div></div>' +
+        '<p class="group-label">최근에 맞은 회차</p><ul class="hit-list">' + (recent.join('') || '<li class="muted">아직 없어요</li>') + '</ul>' +
+        '<p class="hint" style="margin-top:12px">' + r.since + '회까지는 규칙을 만들 때 이미 본 결과라 끼워 맞춘 기록이에요. ' + (r.since + 1) + '회부터의 "발견 후" 비율이 역대 비율과 비슷하면, 그 규칙은 그냥 원래 그만큼 일어나는 일이라는 뜻이에요.</p>';
+      sheet.showModal();
+    });
+    render();
   }
 
   /* =====================================================
