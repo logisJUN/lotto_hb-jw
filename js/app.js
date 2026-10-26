@@ -520,6 +520,17 @@
      번호 생성
      ===================================================== */
   function initGenerate() {
+    // 탭: 조건으로 만들기 / 사주로 만들기 (#saju로 바로 열 수 있음)
+    function showGenTab(name) {
+      $$('#gen-tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
+      $('#tab-cond').hidden = name !== 'cond';
+      $('#tab-saju').hidden = name !== 'saju';
+      try { history.replaceState(null, '', name === 'saju' ? '#saju' : location.pathname); } catch (e) {}
+    }
+    $$('#gen-tabs button').forEach(function (b) { b.addEventListener('click', function () { showGenTab(b.getAttribute('data-tab')); }); });
+    showGenTab(location.hash === '#saju' ? 'saju' : 'cond');
+    initSaju();
+
     var MAXF = 5, MAXX = 30;
     var state = {}, mode = 'fix';
     var board = $('#board'), html = '';
@@ -674,6 +685,96 @@
     });
     $('#save-all').addEventListener('click', function () { if (result.length) addToVault(result, '번호 생성'); });
     $('#copy-all').addEventListener('click', function () { if (result.length) copySets(result); });
+  }
+
+  /* 번호 생성 > 사주로 만들기 (계산은 js/saju.js)
+     생년월일·시 → 사주팔자 → 오행 → 이번 주(다음 추첨 회차) 번호 6개와 강력한 번호 1개.
+     같은 생년월일·시면 다음 추첨 전까지 항상 같은 번호입니다(추첨 회차를 시드로 씀). */
+  var SAJU_KEY = 'lottolab.saju';
+  function initSaju() {
+    var S = window.LottoSaju; if (!S) return;
+    var dateEl = $('#saju-date'), hourEl = $('#saju-hour'), err = $('#saju-err'), box = $('#saju-result');
+    var today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    dateEl.max = today;
+    hourEl.innerHTML = '<option value="">모름</option>' + S.HOURS.map(function (h, i) { return '<option value="' + i + '">' + h + '</option>'; }).join('');
+    var saved; try { saved = JSON.parse(localStorage.getItem(SAJU_KEY)); } catch (e) {}
+    if (saved && saved.date) { dateEl.value = saved.date; hourEl.value = saved.hour == null ? '' : String(saved.hour); }
+
+    function check() {
+      var v = dateEl.value, msg = '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) msg = '생년월일을 넣어 주세요';
+      else {
+        var p = v.split('-').map(Number), dt = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+        if (dt.getUTCFullYear() !== p[0] || dt.getUTCMonth() !== p[1] - 1 || dt.getUTCDate() !== p[2]) msg = '없는 날짜예요';
+        else if (v < '1900-01-01') msg = '1900년 1월 1일부터 넣을 수 있어요';
+        else if (v > today) msg = '오늘보다 뒤의 날짜는 넣을 수 없어요';
+      }
+      err.hidden = !msg; err.textContent = msg; dateEl.setAttribute('aria-invalid', msg ? 'true' : 'false');
+      return !msg;
+    }
+    dateEl.addEventListener('change', check);
+    $('#saju-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!check()) { dateEl.focus(); return; }
+      var hour = hourEl.value === '' ? null : +hourEl.value;
+      try { localStorage.setItem(SAJU_KEY, JSON.stringify({ date: dateEl.value, hour: hour })); } catch (er) {}
+      render(dateEl.value, hour, true);
+    });
+
+    function pillarCell(label, p, unknown) {
+      if (!p) return '<div class="pillar unknown"><span class="pl">' + label + '</span><div class="gz"><b>?</b><small>모름</small></div><div class="gz"><b>?</b><small>모름</small></div></div>';
+      return '<div class="pillar"><span class="pl">' + label + '</span>' +
+        '<div class="gz el-' + S.STEM_EL[p.stem] + '"><b>' + S.STEMS_H[p.stem] + '</b><small>' + S.STEMS[p.stem] + ' · ' + S.EL[S.STEM_EL[p.stem]] + '</small></div>' +
+        '<div class="gz el-' + S.BRANCH_EL[p.branch] + '"><b>' + S.BRANCHES_H[p.branch] + '</b><small>' + S.BRANCHES[p.branch] + ' · ' + S.EL[S.BRANCH_EL[p.branch]] + '</small></div></div>';
+    }
+
+    function render(birth, hour, scroll) {
+      loadDraws().then(function (draws) {
+        var b = birth.split('-').map(Number), p = S.pillars(b[0], b[1], b[2], hour);
+        var next = nextDraw(draws[draws.length - 1]);
+        var dd = new Date(next.at + 9 * 3600e3), drawDay = S.dayPillar(dd.getUTCFullYear(), dd.getUTCMonth() + 1, dd.getUTCDate());
+        var w = S.weeklyNumbers(birth, hour, p, next.round, drawDay), total = hour == null ? 6 : 8;
+        var me = w.me, maxC = Math.max.apply(null, w.counts);
+        box.hidden = false;
+        box.innerHTML =
+          '<div class="card-head"><div><p class="card-sub">' + b[0] + '년 ' + b[1] + '월 ' + b[2] + '일생' + (hour == null ? '' : ' · ' + S.HOURS[hour].split(' ')[0]) + ' · ' + S.ANIMALS[p.year.branch] + '띠</p>' +
+          '<h2 class="card-title" style="font-size:20px">' + next.round + '회 사주 번호</h2></div><span class="badge wait">' + kstDateText(next.at).split(' 오후')[0] + ' 추첨</span></div>' +
+          '<div class="saju-balls">' + w.nums.map(function (n) {
+            var e = w.numEl(n), pw = n === w.power;
+            return '<div class="sb' + (pw ? ' power' : '') + '">' + ball(n, 'lg') + '<span class="el-tag el-' + e + '">' + S.EL[e] + '</span>' + (pw ? '<span class="power-tag">강력</span>' : '') + '</div>';
+          }).join('') + '</div>' +
+          '<p class="power-line"><b>★ 강력한 번호 ' + w.power + '</b> · 사주에 가장 부족한 <b>' + S.EL[w.need] + '(' + S.EL_H[w.need] + ')</b> 기운을 채우는 번호예요. (' + S.EL[w.need] + ' 기운은 끝자리 ' + ['3·8', '2·7', '5·0', '4·9', '1·6'][w.need] + ')</p>' +
+          '<p class="hint">다음 추첨(' + kstDateText(next.at) + ') 전까지는 같은 생년월일' + (hour == null ? '' : '·시') + '이면 언제 봐도 이 번호예요. 추첨이 지나면 새 번호가 나와요.</p>' +
+          '<div class="btn-row" style="margin-top:12px"><button class="btn btn-secondary" type="button" id="saju-copy">복사</button><button class="btn btn-primary" type="button" id="saju-save">보관함에 저장</button></div>' +
+
+          '<hr class="divider"><p class="group-label" style="margin-top:0">사주팔자</p>' +
+          '<div class="pillars">' + pillarCell('시주', p.hour) + pillarCell('일주', p.day) + pillarCell('월주', p.month) + pillarCell('년주', p.year) + '</div>' +
+          '<p class="saju-me">나(일간)는 <b class="el-text-' + me + '">' + S.STEMS[p.day.stem] + S.EL[me] + '(' + S.STEMS_H[p.day.stem] + S.EL_H[me] + ')</b> · ' + S.DAY_MASTER[p.day.stem] + '처럼 ' + S.EL_DESC[me] + '이에요.</p>' +
+          (p.nearTerm ? '<p class="hint">절기가 바뀌는 날 무렵에 태어나서 태어난 시에 따라 월주가 달라질 수 있어요. 시를 넣으면 더 정확해요.</p>' : '') +
+
+          '<p class="group-label">오행 분포 (' + total + '글자)</p><div class="bars">' + [0, 1, 2, 3, 4].map(function (e) {
+            var c = w.counts[e], tag = e === w.need ? ' <span class="badge prize">채울 기운</span>' : c === maxC && c >= 3 ? ' <span class="badge">넘침</span>' : '';
+            return '<div class="bar-row"><span class="lbl"><i class="el-dot el-' + e + '"></i>' + S.EL[e] + '(' + S.EL_H[e] + ')</span>' +
+              '<div class="bar-track"><div class="bar-fill el-fill-' + e + '" style="width:' + (c / total * 100).toFixed(0) + '%"></div></div><span class="val num">' + c + '개' + '</span></div>' + (tag ? '<div style="margin:-4px 0 0 74px">' + tag + '</div>' : '');
+          }).join('') + '</div>' +
+
+          '<p class="group-label">이번 주 기운</p><p class="saju-me">추첨일 ' + kstDateText(next.at).split(' 오후')[0] + '은 <b>' + S.name(drawDay) + '(' + S.hanja(drawDay) + ')일</b>, ' +
+          '<b class="el-text-' + w.weekEl + '">' + S.EL[w.weekEl] + '(' + S.EL_H[w.weekEl] + ')</b> 기운의 날이에요. 이 기운의 번호도 조금 더 자주 골랐어요.</p>' +
+
+          '<details class="fold explain"><summary><span>어떻게 정하나요?</span><svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><ol>' +
+          '<li><b>사주팔자</b>: 년주·월주는 절기(입춘 등)를 기준으로 나눠요. 절기는 태어난 날 태양의 위치(황경)를 계산해서 찾아요. 일주는 날짜로, 시주는 일간과 태어난 시로 구해요.</li>' +
+          '<li><b>오행 세기</b>: 8글자(시를 모르면 6글자)가 목·화·토·금·수 중 무엇인지 세서, 가장 적은 오행을 <b>채울 기운</b>으로 정해요.</li>' +
+          '<li><b>번호와 오행</b>: 전통 하도(河圖) 수리에 따라 번호의 끝자리로 오행을 정해요. 수 1·6, 화 2·7, 목 3·8, 금 4·9, 토 5·0.</li>' +
+          '<li><b>강력한 번호</b>: 채울 기운에 해당하는 번호 중 하나를 먼저 골라요.</li>' +
+          '<li><b>나머지 5개</b>: 채울 기운의 번호를 가장 많이, 나(일간)와 이번 추첨일의 기운을 그다음으로 자주, 넘치는 기운은 덜 고르도록 무게를 둬서 뽑아요.</li>' +
+          '<li><b>매주 같은 번호</b>: 생년월일·시와 추첨 회차를 합쳐 만든 고정된 난수로 뽑기 때문에, 같은 주에는 언제 봐도 같은 번호가 나와요.</li></ol></details>' +
+          '<p class="hint" style="margin-top:10px">재미로 보는 전통 풀이예요. 사주 번호도 다른 조합과 당첨 확률은 같아요.</p>';
+        $('#saju-copy').addEventListener('click', function () { copySets([w.nums]); });
+        $('#saju-save').addEventListener('click', function () { addToVault([w.nums], '사주 번호 ' + next.round + '회'); });
+        if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }).catch(function () { box.hidden = false; loadError(box); });
+    }
+    if (saved && saved.date && check()) render(saved.date, saved.hour == null ? null : saved.hour, false);
   }
 
   /* =====================================================

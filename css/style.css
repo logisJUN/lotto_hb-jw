@@ -34,6 +34,12 @@
   --heat-0: #eef0fb;
   --heat-1: #4f46e5;
   /* 그림자, 모서리, 간격 */
+  /* 오행 색 (사주): 목 초록, 화 빨강, 토 황토, 금 회색, 수 파랑 */
+  --el-0: #15803d;
+  --el-1: #dc2626;
+  --el-2: #b45309;
+  --el-3: #64748b;
+  --el-4: #1d4ed8;
   --shadow: 0 1px 2px rgba(19, 26, 44, .04), 0 4px 16px rgba(19, 26, 44, .06);
   --shadow-lg: 0 8px 32px rgba(19, 26, 44, .12);
   --r-sm: 8px;
@@ -69,6 +75,11 @@
   --bar-track: #222b47;
   --heat-0: #1b2440;
   --heat-1: #818cf8;
+  --el-0: #4ade80;
+  --el-1: #f87171;
+  --el-2: #fbbf24;
+  --el-3: #cbd5e1;
+  --el-4: #60a5fa;
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, .45);
   color-scheme: dark;
@@ -511,6 +522,31 @@ details.fold[open] > summary { margin-bottom: 8px; }
 .rule-list.compact .rule-item { min-height: 44px; padding: 8px 10px; background: var(--surface); }
 .hit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
 .tile small { display: block; font-size: 12px; margin-top: 2px; }
+/* 사주 번호 */
+.saju-balls { display: flex; justify-content: space-between; gap: 4px; margin: 4px 0 6px; }
+.sb { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; min-width: 0; padding-top: 6px; }
+.sb .ball { --s: min(48px, 13vw); }
+.sb.power .ball { box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--prize), 0 6px 14px rgba(0,0,0,.25); transform: scale(1.06); }
+.power-tag { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font-size: 10.5px; font-weight: 800; padding: 1px 6px; border-radius: 6px; background: var(--prize); color: var(--surface); white-space: nowrap; }
+.el-tag { font-size: 11.5px; font-weight: 800; padding: 1px 7px; border-radius: 999px; color: var(--el); background: color-mix(in srgb, var(--el) 14%, transparent); }
+.el-0 { --el: var(--el-0); } .el-1 { --el: var(--el-1); } .el-2 { --el: var(--el-2); } .el-3 { --el: var(--el-3); } .el-4 { --el: var(--el-4); }
+.el-text-0 { color: var(--el-0); } .el-text-1 { color: var(--el-1); } .el-text-2 { color: var(--el-2); } .el-text-3 { color: var(--el-3); } .el-text-4 { color: var(--el-4); }
+.el-fill-0 { background: var(--el-0); } .el-fill-1 { background: var(--el-1); } .el-fill-2 { background: var(--el-2); } .el-fill-3 { background: var(--el-3); } .el-fill-4 { background: var(--el-4); }
+.el-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--el); margin-right: 6px; vertical-align: 0; }
+.power-line { margin-top: 12px; font-size: 14px; line-height: 1.6; color: var(--text); }
+.power-line b:first-child { color: var(--prize); }
+.pillars { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pillar { display: flex; flex-direction: column; gap: 6px; text-align: center; }
+.pillar .pl { font-size: 12px; font-weight: 700; color: var(--text-3); }
+.gz { border-radius: var(--r-md); padding: 8px 2px; background: color-mix(in srgb, var(--el) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--el) 35%, transparent); }
+.gz b { display: block; font-size: 26px; line-height: 1.15; font-weight: 700; color: var(--el); font-family: 'Noto Serif KR', 'Noto Sans KR', serif; }
+.gz small { display: block; font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+.pillar.unknown .gz { background: var(--surface-2); border-style: dashed; border-color: var(--border); }
+.pillar.unknown .gz b { color: var(--text-3); }
+.saju-me { font-size: 14px; line-height: 1.65; color: var(--text-2); margin-top: 10px; }
+.saju-me b:not([class]) { color: var(--text); }
+.bars .bar-row .lbl .el-dot { vertical-align: 0; }
+
 .explain { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-md); background: var(--surface-2); }
 .explain summary { font-size: 14px; font-weight: 700; color: var(--text-2); }
 .explain ol { margin: 0; padding-left: 20px; font-size: 13px; color: var(--text-2); line-height: 1.65; display: flex; flex-direction: column; gap: 6px; }
