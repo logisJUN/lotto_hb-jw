@@ -297,7 +297,7 @@
       if (names.indexOf(name) < 0) name = names[0];
       btns.forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
       names.forEach(function (n) { var p = $('#tab-' + n); if (p) p.hidden = n !== name; });
-      if (fromUser) { try { history.replaceState(null, '', name === names[0] ? location.pathname : '#' + name); } catch (e) { /* 무시 */ } }
+      if (fromUser) { try { history.replaceState(null, '', name === names[0] ? location.pathname : '#' + name); } catch { /* 무시 */ } }
       if (onChange) onChange(name);
     }
     btns.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab'), true); }); });
@@ -734,31 +734,95 @@
   function initSaju() {
     var S = window.LottoSaju; if (!S) return;
     var dateEl = $('#saju-date'), hourEl = $('#saju-hour'), err = $('#saju-err'), box = $('#saju-result');
-    var today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    var lyEl = $('#lunar-y'), lmEl = $('#lunar-m'), ldEl = $('#lunar-d'), leapEl = $('#lunar-leap');
+    var today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10), cal = 'solar';
     dateEl.max = today;
+    lyEl.max = today.slice(0, 4);
     hourEl.innerHTML = '<option value="">모름</option>' + S.HOURS.map(function (h, i) { return '<option value="' + i + '">' + h + '</option>'; }).join('');
-    var saved; try { saved = JSON.parse(localStorage.getItem(SAJU_KEY)); } catch {}
-    if (saved && saved.date) { dateEl.value = saved.date; hourEl.value = saved.hour == null ? '' : String(saved.hour); }
+    lmEl.innerHTML = '<option value="">월</option>' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(function (m) { return '<option value="' + m + '">' + m + '월</option>'; }).join('');
+    var days = ''; for (var k = 1; k <= 30; k++) days += '<option value="' + k + '">' + k + '일</option>';
+    ldEl.innerHTML = '<option value="">일</option>' + days;
 
-    function check() {
-      var v = dateEl.value, msg = '';
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) msg = '생년월일을 넣어 주세요';
-      else {
-        var p = v.split('-').map(Number), dt = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
-        if (dt.getUTCFullYear() !== p[0] || dt.getUTCMonth() !== p[1] - 1 || dt.getUTCDate() !== p[2]) msg = '없는 날짜예요';
-        else if (v < '1900-01-01') msg = '1900년 1월 1일부터 넣을 수 있어요';
-        else if (v > today) msg = '오늘보다 뒤의 날짜는 넣을 수 없어요';
-      }
-      err.hidden = !msg; err.textContent = msg; dateEl.setAttribute('aria-invalid', msg ? 'true' : 'false');
+    // 양력 / 음력 고르기
+    function setCal(c) {
+      cal = c;
+      $$('#saju-cal button').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-cal') === c ? 'true' : 'false'); });
+      $('#solar-field').hidden = c !== 'solar';
+      $('#lunar-field').hidden = c !== 'lunar';
+      showErr('');
+    }
+    $$('#saju-cal button').forEach(function (b) { b.addEventListener('click', function () { setCal(b.getAttribute('data-cal')); }); });
+
+    var saved; try { saved = JSON.parse(localStorage.getItem(SAJU_KEY)); } catch {}
+    if (saved) {
+      hourEl.value = saved.hour == null ? '' : String(saved.hour);
+      if (saved.cal === 'lunar') { setCal('lunar'); lyEl.value = saved.ly; lmEl.value = saved.lm; ldEl.value = saved.ld; leapEl.checked = !!saved.leap; }
+      else if (saved.date) dateEl.value = saved.date;
+    }
+
+    function showErr(msg, el) {
+      err.hidden = !msg; err.textContent = msg;
+      [dateEl, lyEl, lmEl, ldEl].forEach(function (x) { x.setAttribute('aria-invalid', msg && x === el ? 'true' : 'false'); });
       return !msg;
     }
-    dateEl.addEventListener('change', check);
+    function checkSolar(v) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return '생년월일을 넣어 주세요';
+      var p = v.split('-').map(Number), dt = new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+      if (dt.getUTCFullYear() !== p[0] || dt.getUTCMonth() !== p[1] - 1 || dt.getUTCDate() !== p[2]) return '없는 날짜예요';
+      if (v < '1900-01-01') return '1900년 1월 1일부터 넣을 수 있어요';
+      if (v > today) return '오늘보다 뒤의 날짜는 넣을 수 없어요';
+      return '';
+    }
+    // 음력 → 양력 (한국천문연구원 기준 표, js/vendor/korean-lunar-calendar.min.js를 처음 쓸 때 불러옴)
+    var lunarLib;
+    function loadLunar() {
+      if (window.KoreanLunarCalendar) return Promise.resolve(window.KoreanLunarCalendar);
+      if (!lunarLib) lunarLib = new Promise(function (ok, fail) {
+        var sc = document.createElement('script');
+        sc.src = 'js/vendor/korean-lunar-calendar.min.js';
+        sc.onload = function () { window.KoreanLunarCalendar ? ok(window.KoreanLunarCalendar) : fail(new Error('lunar')); };
+        sc.onerror = function () { lunarLib = null; fail(new Error('lunar')); };
+        document.head.appendChild(sc);
+      });
+      return lunarLib;
+    }
+    // 입력을 검사해 양력 날짜로 돌려줍니다: {solar:'YYYY-MM-DD', lunarText} 또는 {error, el}
+    function resolveBirth() {
+      if (cal === 'solar') {
+        var e1 = checkSolar(dateEl.value);
+        return Promise.resolve(e1 ? { error: e1, el: dateEl } : { solar: dateEl.value });
+      }
+      var y = String(lyEl.value).trim(), m = +lmEl.value, d = +ldEl.value, leap = leapEl.checked;
+      if (!/^\d{4}$/.test(y)) return Promise.resolve({ error: '음력 태어난 해를 4자리로 넣어 주세요', el: lyEl });
+      y = +y;
+      if (y < 1900 || y > +today.slice(0, 4)) return Promise.resolve({ error: '음력 1900년부터 올해까지 넣을 수 있어요', el: lyEl });
+      if (!m) return Promise.resolve({ error: '음력 태어난 달을 골라 주세요', el: lmEl });
+      if (!d) return Promise.resolve({ error: '음력 태어난 날을 골라 주세요', el: ldEl });
+      return loadLunar().then(function (K) {
+        var c = new K();
+        if (!c.setLunarDate(y, m, d, leap)) {
+          if (leap && !c.setLunarDate(y, m, 1, true)) return { error: '음력 ' + y + '년에는 윤' + m + '월이 없어요. 윤달이 아니면 체크를 풀어 주세요', el: lmEl };
+          if (d === 30) return { error: '음력 ' + y + '년 ' + (leap ? '윤' : '') + m + '월은 29일까지예요', el: ldEl };
+          return { error: '바꿀 수 없는 날짜예요 (음력 1900년~2050년)', el: lyEl };
+        }
+        var o = c.getSolarCalendar(), solar = o.year + '-' + pad(o.month) + '-' + pad(o.day);
+        var e2 = checkSolar(solar);
+        if (e2) return { error: e2 === '오늘보다 뒤의 날짜는 넣을 수 없어요' ? '양력으로 바꾸면 오늘보다 뒤의 날짜예요' : e2, el: lyEl };
+        return { solar: solar, lunarText: '음력 ' + y + '년 ' + (leap ? '윤' : '') + m + '월 ' + d + '일' };
+      }, function () { return { error: '음력 변환 도구를 불러오지 못했어요. 인터넷 연결을 확인해 주세요', el: lyEl }; });
+    }
+
+    dateEl.addEventListener('change', function () { showErr(checkSolar(dateEl.value), dateEl); });
     $('#saju-form').addEventListener('submit', function (e) {
       e.preventDefault();
-      if (!check()) { dateEl.focus(); return; }
-      var hour = hourEl.value === '' ? null : +hourEl.value;
-      try { localStorage.setItem(SAJU_KEY, JSON.stringify({ date: dateEl.value, hour: hour })); } catch {}
-      render(dateEl.value, hour, true);
+      resolveBirth().then(function (r) {
+        if (r.error) { showErr(r.error, r.el); r.el.focus(); return; }
+        showErr('');
+        var hour = hourEl.value === '' ? null : +hourEl.value;
+        var store = cal === 'lunar' ? { cal: 'lunar', ly: +lyEl.value, lm: +lmEl.value, ld: +ldEl.value, leap: leapEl.checked, hour: hour } : { cal: 'solar', date: dateEl.value, hour: hour };
+        try { localStorage.setItem(SAJU_KEY, JSON.stringify(store)); } catch {}
+        render(r.solar, hour, true, r.lunarText);
+      });
     });
 
     function pillarCell(label, p) {
@@ -768,7 +832,7 @@
         '<div class="gz el-' + S.BRANCH_EL[p.branch] + '"><b>' + S.BRANCHES_H[p.branch] + '</b><small>' + S.BRANCHES[p.branch] + ' · ' + S.EL[S.BRANCH_EL[p.branch]] + '</small></div></div>';
     }
 
-    function render(birth, hour, scroll) {
+    function render(birth, hour, scroll, lunarText) {
       loadDraws().then(function (draws) {
         var b = birth.split('-').map(Number), p = S.pillars(b[0], b[1], b[2], hour);
         var next = nextDraw(draws[draws.length - 1]);
@@ -777,7 +841,7 @@
         var me = w.me, maxC = Math.max.apply(null, w.counts);
         box.hidden = false;
         box.innerHTML =
-          '<div class="card-head"><div><p class="card-sub">' + b[0] + '년 ' + b[1] + '월 ' + b[2] + '일생' + (hour == null ? '' : ' · ' + S.HOURS[hour].split(' ')[0]) + ' · ' + S.ANIMALS[p.year.branch] + '띠</p>' +
+          '<div class="card-head"><div><p class="card-sub">' + (lunarText ? esc(lunarText) + ' (양력 ' + b[0] + '년 ' + b[1] + '월 ' + b[2] + '일)' : '양력 ' + b[0] + '년 ' + b[1] + '월 ' + b[2] + '일') + '생' + (hour == null ? '' : ' · ' + S.HOURS[hour].split(' ')[0]) + ' · ' + S.ANIMALS[p.year.branch] + '띠</p>' +
           '<h2 class="card-title" style="font-size:20px">' + next.round + '회 사주 번호</h2></div><span class="badge wait">' + kstDateText(next.at).split(' 오후')[0] + ' 추첨</span></div>' +
           '<div class="saju-balls">' + w.nums.map(function (n) {
             var e = w.numEl(n), pw = n === w.power;
@@ -814,7 +878,7 @@
         if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }).catch(function () { box.hidden = false; loadError(box); });
     }
-    if (saved && saved.date && check()) render(saved.date, saved.hour == null ? null : saved.hour, false);
+    if (saved && (saved.date || saved.cal === 'lunar')) resolveBirth().then(function (r) { if (!r.error) render(r.solar, saved.hour == null ? null : saved.hour, false, r.lunarText); });
   }
 
   /* =====================================================

@@ -147,16 +147,29 @@
           <div><h2 class="card-title" id="saju-title">사주로 이번 주 번호 받기</h2><p class="card-sub">생년월일과 태어난 시로 사주팔자를 풀어, 오행에 맞는 번호 6개를 드려요.</p></div>
         </div>
         <form id="saju-form" novalidate style="display:flex;flex-direction:column;gap:12px">
-          <div class="field">
+          <div class="seg" id="saju-cal" role="group" aria-label="생일 달력">
+            <button type="button" data-cal="solar" aria-pressed="true">양력</button>
+            <button type="button" data-cal="lunar" aria-pressed="false">음력</button>
+          </div>
+          <div class="field" id="solar-field">
             <label for="saju-date">생년월일 (양력)</label>
             <input class="input num" id="saju-date" type="date" min="1900-01-01" required aria-describedby="saju-err">
           </div>
+          <fieldset class="field lunar-field" id="lunar-field" hidden>
+            <legend>생년월일 (음력)</legend>
+            <div class="lunar-row">
+              <input class="input num" id="lunar-y" type="number" inputmode="numeric" min="1900" step="1" placeholder="년 (예: 1990)" aria-label="음력 년" aria-describedby="saju-err">
+              <select class="input" id="lunar-m" aria-label="음력 월"></select>
+              <select class="input" id="lunar-d" aria-label="음력 일"></select>
+            </div>
+            <label class="check"><input type="checkbox" id="lunar-leap"> 윤달에 태어났어요</label>
+          </fieldset>
           <div class="field">
             <label for="saju-hour">태어난 시 <span class="muted">(선택)</span></label>
             <select class="input" id="saju-hour"><option value="">모름</option></select>
           </div>
           <p class="field-error" id="saju-err" role="alert" hidden></p>
-          <p class="hint" style="margin:0">음력 생일은 양력으로 바꿔서 넣어 주세요. 태어난 시를 넣으면 시주까지 8글자로 풀어요.</p>
+          <p class="hint" style="margin:0">음력 생일은 [음력]을 눌러 넣어 주세요. 한국천문연구원 기준으로 양력으로 바꿔 풀어서, 양력으로 넣을 때와 같은 결과가 나와요. 태어난 시를 넣으면 시주까지 8글자로 풀어요.</p>
           <button class="btn btn-primary btn-block" type="submit">사주 번호 보기</button>
         </form>
       </section>

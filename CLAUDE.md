@@ -16,7 +16,7 @@
 - `css/style.css`: 맨 위 `:root`(라이트)와 `[data-theme="dark"]`의 색 토큰, 그 아래 공통 컴포넌트(`.card`, `.btn`, `.seg`, `.chip`, `.switch`, `.ball`, `.board`, `.bars` 등). 화면 코드에 색 값을 직접 쓰지 말고 토큰을 씁니다.
 - 색 역할: `--primary` 브랜드·주요 버튼·선택, `--prize` 당첨금, `--win` 당첨·일치, `--danger` 삭제·제외. 로또 공 색은 `.ball.y/.b/.r/.g/.n`에만 씁니다.
 - `js/app.js`: 공통(데이터 읽기, 등수 계산 `rankOf`, 가장 많이 맞은 회차 `findBestMatches`, 번호 생성 `generate`, 6개 고르기 판 `makePicker`, 보관함, 테마) 다음에 화면별 `initHome`/`initGenerate`/`initStats`(+`initBestMatch`)/`initCheck`/`initVault`.
-- 사주 번호: 계산은 `js/saju.js`(브라우저·Node 겸용: `pillars`, `dayPillar`, `weeklyNumbers`), 화면은 번호 생성의 `initSaju`(탭 `#saju`). 시드는 `생년월일|시|다음 추첨 회차`라서 같은 주에는 항상 같은 번호가 나와야 합니다. 이 시드나 가중치를 바꾸면 그 주의 번호가 바뀌므로 CHANGELOG에 알립니다. 마지막 입력은 `lottolab.saju`에 저장합니다.
+- 사주 번호: 계산은 `js/saju.js`(브라우저·Node 겸용: `pillars`, `dayPillar`, `weeklyNumbers`), 화면은 번호 생성의 `initSaju`(탭 `#saju`). 시드는 `생년월일|시|다음 추첨 회차`라서 같은 주에는 항상 같은 번호가 나와야 합니다. 이 시드나 가중치를 바꾸면 그 주의 번호가 바뀌므로 CHANGELOG에 알립니다. 마지막 입력은 `lottolab.saju`에 저장합니다(`{cal:'solar', date, hour}` 또는 `{cal:'lunar', ly, lm, ld, leap, hour}`). 음력은 `js/vendor/korean-lunar-calendar.min.js`(KASI 기준, 필요할 때만 불러옴)로 양력으로 바꾼 뒤 같은 계산을 하므로, 시드는 항상 양력 날짜입니다.
 - 화면 안 탭은 `role="tablist"` + `data-tab` 버튼과 `#tab-<이름>` 패널로 만들고, 주소 `#이름`으로 바로 열립니다(통계는 공통 `setupTabs`, 번호 생성·당첨 조회는 각자). 새 기능을 추가하면 **홈의 기능 지도(`index.html`의 `.menu-grid`)에도 타일을 추가**해 찾아갈 수 있게 합니다.
 - 아래에서 올라오는 창은 `<dialog class="sheet">`를 씁니다(통계의 번호 고르기 창, 당첨 조회의 QR 카메라 창).
 - 용지 QR: `parseTicket`(주소의 `v=` → 회차 4자리 + 게임마다 글자 1자·12자리), `readQR`(BarcodeDetector가 없으면 `js/vendor/jsQR.min.js`를 그때 불러옴), 화면은 `initQr`. 외부 CDN은 쓰지 않습니다.
