@@ -24,26 +24,36 @@
 <div class="app">
   <header class="appbar" id="top"></header>
   <main>
-    <section class="card hero" id="latest" aria-label="최신 당첨번호">
-      <div class="skeleton" style="height:170px;opacity:.25"></div>
+    <section class="card hero" id="latest" aria-label="최신 당첨번호와 다음 추첨">
+      <div class="skeleton" style="height:200px;opacity:.25"></div>
     </section>
 
-    <section class="card" aria-labelledby="count-title">
-      <div class="card-head"><div><h2 class="card-title" id="count-title">다음 추첨까지</h2><p class="card-sub" id="count-date">매주 토요일 오후 8:35</p></div></div>
-      <div class="count" id="countdown" aria-live="off"></div>
-    </section>
-
-    <section class="card" aria-labelledby="quick-title">
-      <div class="card-head">
-        <div><h2 class="card-title" id="quick-title">빠른 번호 뽑기</h2><p class="card-sub">조건 없이 무작위로 5게임</p></div>
-        <a class="link" href="combiner.html">조건 걸고 뽑기<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+    <section class="card" aria-labelledby="menu-title">
+      <div class="card-head" style="margin-bottom:6px"><div><h2 class="card-title" id="menu-title">무엇을 해 볼까요?</h2><p class="card-sub">로또랩의 모든 기능이에요. 눌러서 바로 가요.</p></div></div>
+      <h3 class="menu-group">번호 만들기</h3>
+      <div class="menu-grid">
+        <a class="menu-item" href="#quick"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.3" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/></svg></span><span class="menu-txt"><b>빠른 뽑기</b><small>무작위 5게임</small></span></a>
+        <a class="menu-item" href="combiner.html"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></span><span class="menu-txt"><b>조건으로 만들기</b><small>고정수·제외수·홀짝</small></span></a>
+        <a class="menu-item" href="combiner.html#saju"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/><path d="M17 3v3M15.5 4.5h3"/></svg></span><span class="menu-txt"><b>사주 번호</b><small>생년월일로 이번 주</small></span></a>
       </div>
-      <div class="games" id="quick-games"></div>
-      <div class="btn-row" style="margin-top:14px">
-        <button class="btn btn-secondary" type="button" id="quick-reroll">다시 뽑기</button>
-        <button class="btn btn-primary" type="button" id="quick-save">5게임 모두 저장</button>
+      <h3 class="menu-group">당첨 확인</h3>
+      <div class="menu-grid">
+        <a class="menu-item" href="simulator.html"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg></span><span class="menu-txt"><b>회차별 당첨번호</b><small>1~5등 당첨금</small></span></a>
+        <a class="menu-item" href="simulator.html#mine"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg></span><span class="menu-txt"><b>내 번호 맞춰보기</b><small>역대 회차에 대 보기</small></span></a>
+        <a class="menu-item" href="simulator.html#qr"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4"/></svg></span><span class="menu-txt"><b>용지 QR 확인</b><small>용지를 카메라로</small></span></a>
       </div>
-      <a class="link" href="combiner.html#saju" style="margin-top:10px">생년월일로 이번 주 사주 번호 받기<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+      <h3 class="menu-group">통계·분석</h3>
+      <div class="menu-grid">
+        <a class="menu-item" href="stats.html"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="menu-txt"><b>번호 통계</b><small>출현·패턴·순위</small></span></a>
+        <a class="menu-item" href="stats.html#best"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span class="menu-txt"><b>많이 맞은 회차</b><small>내 번호와 겹친 회차</small></span></a>
+        <a class="menu-item" href="stats.html#rules"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg></span><span class="menu-txt"><b>억지 분석 기록</b><small>억지 규칙 성적표</small></span></a>
+      </div>
+      <h3 class="menu-group">내 번호 관리</h3>
+      <div class="menu-grid">
+        <a class="menu-item" href="vault.html"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg></span><span class="menu-txt"><b>보관함</b><small>저장 번호와 결과</small></span></a>
+        <a class="menu-item" href="vault.html#weekly"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg></span><span class="menu-txt"><b>매주 구매</b><small>같은 번호 누적</small></span></a>
+        <a class="menu-item" href="vault.html#backup"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span><span class="menu-txt"><b>백업·옮기기</b><small>파일·링크로</small></span></a>
+      </div>
     </section>
 
     <section class="card" aria-labelledby="mine-title">
@@ -52,6 +62,17 @@
         <a class="link" href="vault.html">보관함<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
       </div>
       <div id="mine"><div class="skeleton" style="height:64px"></div></div>
+    </section>
+
+    <section class="card" id="quick" aria-labelledby="quick-title" style="scroll-margin-top:72px">
+      <div class="card-head">
+        <div><h2 class="card-title" id="quick-title">빠른 번호 뽑기</h2><p class="card-sub">조건 없이 무작위로 5게임</p></div>
+      </div>
+      <div class="games" id="quick-games"></div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-secondary" type="button" id="quick-reroll">다시 뽑기</button>
+        <button class="btn btn-primary" type="button" id="quick-save">5게임 모두 저장</button>
+      </div>
     </section>
 
     <p class="notice"><b>참고</b> · 로또는 매 회차 독립적으로 추첨돼요. 과거 통계나 조합 조건으로 당첨 확률을 높일 수는 없고, 어떤 조합이든 1등 확률은 8,145,060분의 1로 같아요.</p>

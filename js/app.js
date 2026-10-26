@@ -289,6 +289,23 @@
     }).catch(function () { $('#next-sub').textContent = '당첨 데이터를 불러오지 못했습니다'; });
   }
 
+  /* 화면 안의 탭: role="tablist"의 버튼(data-tab)과 #tab-<이름> 패널을 묶습니다.
+     주소 끝의 #이름으로 바로 열 수 있고(홈의 기능 지도에서 씀), 탭을 바꾸면 주소도 바뀝니다. 첫 탭은 # 없이. */
+  function setupTabs(listSel, onChange) {
+    var btns = $$(listSel + ' [data-tab]'), names = btns.map(function (b) { return b.getAttribute('data-tab'); });
+    function show(name, fromUser) {
+      if (names.indexOf(name) < 0) name = names[0];
+      btns.forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
+      names.forEach(function (n) { var p = $('#tab-' + n); if (p) p.hidden = n !== name; });
+      if (fromUser) { try { history.replaceState(null, '', name === names[0] ? location.pathname : '#' + name); } catch (e) { /* 무시 */ } }
+      if (onChange) onChange(name);
+    }
+    btns.forEach(function (b) { b.addEventListener('click', function () { show(b.getAttribute('data-tab'), true); }); });
+    window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
+    show(location.hash.slice(1));
+    return show;
+  }
+
   // 데이터를 못 읽었을 때 본문에 보여 줄 안내
   function loadError(el) {
     if (el) el.innerHTML = '<div class="empty"><b>당첨 데이터를 불러오지 못했어요</b><p>인터넷 연결을 확인한 뒤 새로고침해 주세요.</p><button class="btn btn-secondary" type="button" onclick="location.reload()">새로고침</button></div>';
@@ -482,7 +499,7 @@
      홈
      ===================================================== */
   function initHome() {
-    var heroEl = $('#latest'), countEl = $('#countdown'), quickEl = $('#quick-games'), mineEl = $('#mine');
+    var heroEl = $('#latest'), quickEl = $('#quick-games'), mineEl = $('#mine');
     var quick = [], lastDraws = null;
     function rollQuick() { quick = generate(5); quickEl.innerHTML = gamesHTML(quick, true); }
     rollQuick();
@@ -520,18 +537,16 @@
         '<div class="hero-meta"><div class="hero-stat"><span>1등 당첨금 (1인)</span><b class="num">' + (first ? won(first) : '-') + '</b></div>' +
         '<div class="hero-stat"><span>1등 당첨자</span><b class="num">' + (winners != null ? winners + '명' : '-') + '</b></div></div>' +
         (pend ? '<p class="hero-note">제 ' + pend.round + '회(' + kstDateText(pend.at).split(' 오후')[0] + ') 결과를 수집하고 있어요. 보통 추첨 다음 날까지 반영돼요.</p>' : '') +
-        '<a class="btn btn-sm hero-btn" href="simulator.html#qr">' + icon('qr', 16) + '내 용지 QR로 당첨 확인</a>';
-      $('#count-title').textContent = '제 ' + next.round + '회 추첨까지';
-      $('#count-date').textContent = kstDateText(next.at);
+        '<div class="hero-next"><span>제 ' + next.round + '회 추첨까지<small>' + kstDateText(next.at) + '</small></span><b class="num" id="countdown" aria-live="off"></b></div>';
+      var countEl = $('#countdown');
       (function tick() {
         var s = Math.max(0, Math.floor((next.at - Date.now()) / 1000));
-        if (!s) { countEl.innerHTML = '<p class="muted" style="grid-column:1/-1">추첨이 끝났어요. 결과는 잠시 뒤 자동으로 반영됩니다.</p>'; return; }
-        var parts = [[Math.floor(s / 86400), '일'], [Math.floor(s / 3600) % 24, '시간'], [Math.floor(s / 60) % 60, '분'], [s % 60, '초']];
-        countEl.innerHTML = parts.map(function (p) { return '<div><b class="num">' + pad(p[0]) + '</b><span>' + p[1] + '</span></div>'; }).join('');
+        if (!s) { countEl.textContent = '추첨 중'; return; }
+        countEl.textContent = Math.floor(s / 86400) + '일 ' + pad(Math.floor(s / 3600) % 24) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
         setTimeout(tick, 1000 - Date.now() % 1000);
       })();
       renderMine();
-    }).catch(function () { loadError(heroEl); countEl.innerHTML = ''; mineEl.innerHTML = ''; });
+    }).catch(function () { loadError(heroEl); mineEl.innerHTML = ''; });
   }
 
   /* =====================================================
@@ -593,16 +608,23 @@
     paint();
 
     // 조건
+    // 조건 칸은 접혀 있고, 제목 옆에 켜진 조건 수를 보여 줍니다
+    function condCount() {
+      var n = ($$('#odd .chip[aria-pressed="true"]').length ? 1 : 0) + $$('#tab-cond .switch[aria-checked="true"]').length;
+      var b = $('#cond-count'); b.textContent = n ? '켜진 조건 ' + n + '개' : '조건 없음'; b.className = 'badge' + (n ? ' wait' : '');
+    }
     $$('#odd .chip').forEach(function (c) {
-      c.addEventListener('click', function () { c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); });
+      c.addEventListener('click', function () { c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); condCount(); });
     });
     $$('.switch').forEach(function (s) {
       s.addEventListener('click', function () {
         var on = s.getAttribute('aria-checked') !== 'true';
         s.setAttribute('aria-checked', on ? 'true' : 'false');
         var tgt = s.getAttribute('data-reveal'); if (tgt) $(tgt).hidden = !on;
+        condCount();
       });
     });
+    condCount();
     var games = 5;
     $$('#games button').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -816,6 +838,7 @@
     }).join('') + '</div>';
   }
   function initStats() {
+    setupTabs('#stats-tabs');
     var root = $('#stats-body');
     loadDraws().then(function (draws) {
       var latest = draws[draws.length - 1].round, period = 100, rankMode = 'hot', selected = null;
@@ -1378,6 +1401,18 @@
     }
     lastBackupText();
     draw();
+    // 홈의 기능 지도에서 vault.html#backup / #weekly로 들어오면 그 자리로 안내합니다
+    function goHash() {
+      var h = location.hash;
+      if (h === '#backup') { var bk = $('#backup'); bk.scrollIntoView({ block: 'start' }); bk.classList.add('flash'); setTimeout(function () { bk.classList.remove('flash'); }, 1600); }
+      if (h === '#weekly') {
+        var has = loadVault().some(function (o) { return o.weekly; });
+        $('#weekly-help').hidden = false;
+        (has ? $('#vault-tools') : $('#weekly-help')).scrollIntoView({ block: 'start' });
+      }
+    }
+    goHash();
+    window.addEventListener('hashchange', goHash);
     loadDraws().then(function (d) { draws = d; draw(); })
       .catch(function () { listEl.innerHTML = '<p class="muted">당첨 데이터를 불러오지 못해 결과를 확인할 수 없어요.</p>'; });
   }

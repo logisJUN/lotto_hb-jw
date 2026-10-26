@@ -31,7 +31,7 @@
 
     <section class="card" id="vault-import" hidden aria-live="polite"></section>
 
-    <section class="card" id="vault-tools" hidden>
+    <section class="card" id="vault-tools" hidden style="scroll-margin-top:72px">
       <div class="card-head" style="margin-bottom:10px">
         <div><h2 class="card-title" id="vault-count">0게임</h2><p class="card-sub" id="vault-summary"></p></div>
       </div>
@@ -40,6 +40,11 @@
         <button class="btn btn-secondary btn-sm" type="button" id="vault-copy">전체 복사</button>
         <button class="btn btn-secondary btn-sm btn-danger" type="button" id="vault-clear">전체 삭제</button>
       </div>
+    </section>
+
+    <section class="card" id="weekly-help" hidden aria-labelledby="weekly-help-title" style="scroll-margin-top:72px">
+      <h2 class="card-title" id="weekly-help-title" style="margin-bottom:6px">매주 같은 번호를 산다면</h2>
+      <p class="muted">아래 저장한 번호마다 있는 <b>[매주 구매]</b> 버튼을 켜면, 그 번호를 저장한 뒤 열린 모든 회차를 확인해 구입액·당첨금·최고 등수를 모아서 보여 줘요. 켠 번호는 맨 위로 올라가요.</p>
     </section>
 
     <div id="vault-list"></div>
@@ -51,7 +56,7 @@
       <a class="btn btn-primary" href="combiner.html">번호 뽑으러 가기</a>
     </section>
 
-    <section class="card" aria-labelledby="backup-title">
+    <section class="card" id="backup" aria-labelledby="backup-title" style="scroll-margin-top:72px">
       <div class="card-head" style="margin-bottom:12px">
         <div><h2 class="card-title" id="backup-title">백업·옮기기</h2><p class="card-sub">저장한 번호는 이 기기의 브라우저에만 있어요. 휴대폰을 바꾸거나 브라우저 데이터를 지우기 전에 백업해 두세요.</p></div>
       </div>
