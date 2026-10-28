@@ -27,6 +27,7 @@
 
 ## 알아둘 점
 
+- **보관함은 지금 숨김 상태입니다**(사용자 요청). `js/app.js`의 `VAULT_ON = false`면 하단 탭에서 빠지고, `data-vault`가 붙은 요소(홈의 내 번호 관리·내 번호 결과, 저장 버튼, 당첨 조회의 보관함에서 불러오기 등)는 CSS `html:not(.vault-on) [data-vault]`로 숨기며, `vault.html`은 홈으로 보냅니다. 저장과 관련된 화면 요소를 새로 만들면 `data-vault`를 붙입니다. 다시 켜 달라고 하면 `VAULT_ON = true`로 바꾸고 README·CHANGELOG를 맞춥니다.
 - 화면의 모든 수치는 `data/lotto.json`으로 계산합니다. 근거 없는 수치나 "당첨 확률을 높인다"는 식의 문구는 넣지 않습니다.
 - 보관함은 최대 `VAULT_MAX`(500)게임입니다. 가득 차면 저장·가져오기를 막고 알리며, 있던 항목을 지우지 않습니다. 결과가 없는 항목의 대상 회차는 **저장 시각** 기준(`drawAfter`)이고, 추첨이 지났는데 데이터가 없으면 "결과 수집 중"(`pendingDraw`, `roundAt`)으로 표시합니다. `nextDraw`는 지금 이후 첫 추첨입니다.
 - 보관함 항목(`lottolab.vault`)은 `{nums, label, at, weekly?, round?}` 형식입니다. `round`가 있으면(QR 용지) 그 회차로, 없으면 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).

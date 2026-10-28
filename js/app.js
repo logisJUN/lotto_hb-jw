@@ -88,6 +88,9 @@
 
   /* 보관함 (이 기기의 localStorage). 가득 차면 새로 넣지 않고 알립니다(예전 번호를 몰래 지우지 않음). */
   var VAULT_MAX = 500;
+  // 보관함 기능을 잠시 숨깁니다. true로 바꾸면 하단 탭·홈의 내 번호 관리·저장 버튼이 모두 다시 나타납니다(저장된 번호는 그대로 남아 있음).
+  var VAULT_ON = false;
+  if (VAULT_ON) document.documentElement.classList.add('vault-on');
   function loadVault() { try { return JSON.parse(localStorage.getItem(VAULT_KEY)) || []; } catch { return []; } }
   function saveVault(list) { try { localStorage.setItem(VAULT_KEY, JSON.stringify(list)); return true; } catch { return false; } }
   // round를 주면 그 회차 용지로 저장합니다(QR 용지). 없으면 저장 뒤 첫 추첨이 대상입니다.
@@ -241,7 +244,7 @@
     ['stats', 'stats.html', '통계', 'chart'],
     ['simulator', 'simulator.html', '당첨 조회', 'search'],
     ['vault', 'vault.html', '보관함', 'bookmark']
-  ];
+  ].filter(function (t) { return VAULT_ON || t[0] !== 'vault'; });
   var THEME_NAME = { system: '기기 설정', light: '라이트', dark: '다크' };
   function themePref() { try { return localStorage.getItem(THEME_KEY) || 'system'; } catch { return 'system'; } }
   function applyTheme(pref) {
@@ -344,7 +347,7 @@
       var L = String.fromCharCode(65 + i);
       return '<div class="game"><span class="game-label">' + L + '</span>' +
         '<div class="game-body">' + balls(s, { size: 'sm', nowrap: true }) + '<div class="game-meta">' + gameMeta(s) + '</div></div>' +
-        (withSave ? '<div class="game-actions"><button class="icon-btn" type="button" data-save="' + i + '" aria-label="' + L + ' 게임 저장">' + icon('save') + '</button></div>' : '') +
+        (withSave ? '<div class="game-actions"><button class="icon-btn" type="button" data-vault data-save="' + i + '" aria-label="' + L + ' 게임 저장">' + icon('save') + '</button></div>' : '') +
         '</div>';
     }).join('');
   }
@@ -849,7 +852,7 @@
           }).join('') + '</div>' +
           '<p class="power-line"><b>★ 강력한 번호 ' + w.power + '</b> · 사주에 가장 부족한 <b>' + S.EL[w.need] + '(' + S.EL_H[w.need] + ')</b> 기운을 채우는 번호예요. (' + S.EL[w.need] + ' 기운은 끝자리 ' + ['3·8', '2·7', '5·0', '4·9', '1·6'][w.need] + ')</p>' +
           '<p class="hint">다음 추첨(' + kstDateText(next.at) + ') 전까지는 같은 생년월일' + (hour == null ? '' : '·시') + '이면 언제 봐도 이 번호예요. 추첨이 지나면 새 번호가 나와요.</p>' +
-          '<div class="btn-row" style="margin-top:12px"><button class="btn btn-secondary" type="button" id="saju-copy">복사</button><button class="btn btn-primary" type="button" id="saju-save">보관함에 저장</button></div>' +
+          '<div class="btn-row" style="margin-top:12px"><button class="btn btn-secondary" type="button" id="saju-copy">복사</button><button class="btn btn-primary" type="button" id="saju-save" data-vault>보관함에 저장</button></div>' +
 
           '<hr class="divider"><p class="group-label" style="margin-top:0">사주팔자</p>' +
           '<div class="pillars">' + pillarCell('시주', p.hour) + pillarCell('일주', p.day) + pillarCell('월주', p.month) + pillarCell('년주', p.year) + '</div>' +
@@ -1035,7 +1038,7 @@
         }).join('') + '</div>'
           : '<p class="muted" style="margin-top:14px">3개 이상 맞은 회차가 한 번도 없어요.</p>') +
         '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="best-again">번호 바꿔서 다시 조회</button>' +
-        '<button class="btn btn-secondary" type="button" id="best-save">이 번호 저장</button></div>';
+        '<button class="btn btn-secondary" type="button" id="best-save" data-vault>이 번호 저장</button></div>';
       $('#best-again').addEventListener('click', open);
       $('#best-save').addEventListener('click', function () { addToVault([nums], '가장 많이 맞은 회차'); });
       result.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1175,7 +1178,8 @@
         return '<option value="' + i + '">' + o.nums.map(pad).join(' ') + (o.label ? ' · ' + esc(o.label) : '') + '</option>';
       }).join('');
       sel.addEventListener('change', function () { if (sel.value !== '') picker.set(vault[+sel.value].nums); });
-    } else sel.hidden = true;
+    }
+    if (!VAULT_ON || !vault.length) sel.hidden = true;
 
     $('#run-check').addEventListener('click', function () {
       var nums = picker.get(), counts = [0, 0, 0, 0, 0, 0], prize = 0, best = null, hasAll = true;
@@ -1206,7 +1210,7 @@
           '<p class="hint" style="margin-top:6px">' + fmtDate(best.d.date) + ' 추첨 · 당첨금 ' + comma(prizeOf(best.rank, best.d)) + '원</p>'
           : '<p class="muted" style="margin-top:12px">3개 이상 맞은 회차가 한 번도 없어요.</p>') +
         (hasAll ? '' : '<p class="hint" style="margin-top:8px">일부 회차는 2·3등 당첨금 정보가 없어 합계에서 빠졌어요.</p>') +
-        '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="save-checked">' + icon('save') + '이 번호 저장</button></div>';
+        '<div class="btn-row" style="margin-top:14px" data-vault><button class="btn btn-secondary" type="button" id="save-checked">' + icon('save') + '이 번호 저장</button></div>';
       $('#save-checked').addEventListener('click', function () { addToVault([nums], '당첨 조회'); });
       box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
@@ -1320,14 +1324,14 @@
           : (function () {
             var tAt = roundAt(draws[draws.length - 1], t.round), done = tAt <= Date.now();
             return '<div class="card-head"><div><p class="card-sub">' + (done ? '추첨은 끝났고 결과를 수집하고 있어요' : '아직 추첨 전이에요') + '</p><h2 class="card-title" style="font-size:20px">제 ' + t.round + '회 용지 · ' + t.games.length + '게임</h2></div><span class="badge wait">' + (done ? '결과 수집 중' : '추첨 대기') + '</span></div>' +
-              '<p class="hint" style="margin-bottom:10px">' + kstDateText(tAt) + ' 추첨' + (done ? '이었어요. ' : '이에요. ') + '보관함에 저장해 두면 결과가 들어오는 대로 자동으로 보여 드려요.</p>';
+              '<p class="hint" style="margin-bottom:10px">' + kstDateText(tAt) + ' 추첨' + (done ? '이었어요.' : '이에요.') + (VAULT_ON ? ' 보관함에 저장해 두면 결과가 들어오는 대로 자동으로 보여 드려요.' : ' 추첨 뒤에 다시 확인해 주세요.') + '</p>';
           })();
         box.hidden = false;
         box.innerHTML = head + '<div class="games">' + rows + '</div>' +
           (d ? '<div class="tiles" style="margin-top:14px"><div class="tile"><span>총 당첨금</span><b class="num ' + (total ? 'prize' : '') + '">' + comma(total) + '원</b></div>' +
             '<div class="tile"><span>구입 금액</span><b class="num">' + comma(t.games.length * 1000) + '원</b></div></div>' : '') +
           '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="qr-again">다른 용지 확인</button>' +
-          '<button class="btn btn-primary" type="button" id="qr-save">보관함에 저장</button></div>';
+          '<button class="btn btn-primary" type="button" id="qr-save" data-vault>보관함에 저장</button></div>';
         $('#qr-again').addEventListener('click', function () { box.hidden = true; $('#qr-scan').focus(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
         $('#qr-save').addEventListener('click', function () { addToVault(t.games, 'QR 용지 ' + t.round + '회', t.round); });
         box.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1487,5 +1491,5 @@
   if (page === 'combiner') initGenerate();
   if (page === 'stats') initStats();
   if (page === 'simulator') initCheck();
-  if (page === 'vault') initVault();
+  if (page === 'vault') { if (VAULT_ON) initVault(); else location.replace('index.html'); }
 })();

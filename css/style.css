@@ -105,6 +105,8 @@ button { background: none; border: 0; padding: 0; cursor: pointer; -webkit-tap-h
 .num { font-family: var(--num); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 [hidden] { display: none !important; }
+/* 보관함 관련 요소는 app.js의 VAULT_ON이 켜질 때(html.vault-on)만 보입니다 */
+html:not(.vault-on) [data-vault] { display: none !important; }
 
 /* ---------- 앱 틀: 머리말 / 본문 / 하단 탭 ---------- */
 .app { max-width: 480px; margin: 0 auto; min-height: 100vh; }
@@ -136,7 +138,7 @@ main { padding: 4px 16px calc(96px + env(safe-area-inset-bottom)); display: flex
 .tabbar {
   position: fixed; left: 50%; bottom: 0; z-index: 40; transform: translateX(-50%);
   width: 100%; max-width: 480px;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
   background: var(--surface);
   background: color-mix(in srgb, var(--surface) 92%, transparent);

@@ -48,15 +48,15 @@
         <a class="menu-item" href="stats.html#best"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span class="menu-txt"><b>많이 맞은 회차</b><small>내 번호와 겹친 회차</small></span></a>
         <a class="menu-item" href="stats.html#rules"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/></svg></span><span class="menu-txt"><b>패턴 분석 기록</b><small>패턴 규칙 성적표</small></span></a>
       </div>
-      <h3 class="menu-group">내 번호 관리</h3>
-      <div class="menu-grid">
+      <h3 class="menu-group" data-vault>내 번호 관리</h3>
+      <div class="menu-grid" data-vault>
         <a class="menu-item" href="vault.html"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"/></svg></span><span class="menu-txt"><b>보관함</b><small>저장 번호와 결과</small></span></a>
         <a class="menu-item" href="vault.html#weekly"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg></span><span class="menu-txt"><b>매주 구매</b><small>같은 번호 누적</small></span></a>
         <a class="menu-item" href="vault.html#backup"><span class="menu-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></span><span class="menu-txt"><b>백업·옮기기</b><small>파일·링크로</small></span></a>
       </div>
     </section>
 
-    <section class="card" aria-labelledby="mine-title">
+    <section class="card" aria-labelledby="mine-title" data-vault>
       <div class="card-head">
         <div><h2 class="card-title" id="mine-title">내 번호 결과</h2><p class="card-sub">보관함에 저장한 번호의 당첨 여부</p></div>
         <a class="link" href="vault.html">보관함<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
@@ -71,7 +71,7 @@
       <div class="games" id="quick-games"></div>
       <div class="btn-row" style="margin-top:14px">
         <button class="btn btn-secondary" type="button" id="quick-reroll">다시 뽑기</button>
-        <button class="btn btn-primary" type="button" id="quick-save">5게임 모두 저장</button>
+        <button class="btn btn-primary" type="button" id="quick-save" data-vault>5게임 모두 저장</button>
       </div>
     </section>
 
