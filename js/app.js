@@ -241,8 +241,8 @@
   var TABS = [
     ['index', 'index.html', '홈', 'home'],
     ['combiner', 'combiner.html', '번호 생성', 'spark'],
-    ['stats', 'stats.html', '통계', 'chart'],
     ['simulator', 'simulator.html', '당첨 조회', 'search'],
+    ['stats', 'stats.html', '통계', 'chart'],
     ['vault', 'vault.html', '보관함', 'bookmark']
   ].filter(function (t) { return VAULT_ON || t[0] !== 'vault'; });
   var THEME_NAME = { system: '기기 설정', light: '라이트', dark: '다크' };
