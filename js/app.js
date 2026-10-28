@@ -1081,6 +1081,7 @@
     var idx = draws.length - 1, showAll = false;
     var sheet = $('#rule-sheet');
     function pctTxt(x) { return (x * 100).toFixed(1) + '%'; }
+    function byRateDesc(a, b) { return b.rate - a.rate; }
     function afterTxt(r) { return r.after.n ? r.after.hit + '/' + r.after.n + '회' : '아직 없음'; }
     function rowHTML(r, detail) {
       return '<li><button type="button" class="rule-item" data-rule="' + r.id + '"><span class="rule-main"><b>' + esc(r.name) + '</b>' +
@@ -1094,13 +1095,15 @@
       $('#rules-round').innerHTML = '<p class="muted" style="text-align:center;margin-bottom:6px">' + d.round + '회 · ' + fmtDate(d.date) + (idx === draws.length - 1 ? ' · 최신' : '') + '</p>' +
         balls(d.numbers, { bonus: d.bonus, size: 'sm', nowrap: true });
       $('#rules-summary').textContent = s.text;
-      var list = showAll ? s.hits : s.hits.slice(0, 6);
+      // 화면 목록은 역대 %가 높은(자주 나온) 규칙부터 보여 줍니다. 해설 문장의 '가장 드문 건'은 summary가 따로 고릅니다.
+      var hits = s.hits.slice().sort(byRateDesc);
+      var list = showAll ? hits : hits.slice(0, 6);
       $('#rules-hits').innerHTML = list.map(function (r) { return rowHTML(r, r.hits[idx]); }).join('');
       var more = $('#rules-more');
       more.hidden = s.hits.length <= 6;
       more.textContent = showAll ? '접기' : '맞은 규칙 ' + s.hits.length + '개 모두 보기';
     }
-    $('#rules-table').innerHTML = res.rules.slice().sort(function (a, b) { return a.rate - b.rate; }).map(function (r) { return rowHTML(r); }).join('');
+    $('#rules-table').innerHTML = res.rules.slice().sort(byRateDesc).map(function (r) { return rowHTML(r); }).join('');
     $('#rules-prev').addEventListener('click', function () { if (idx > 0) { idx--; showAll = false; render(); } });
     $('#rules-next').addEventListener('click', function () { if (idx < draws.length - 1) { idx++; showAll = false; render(); } });
     $('#rules-more').addEventListener('click', function () { showAll = !showAll; render(); });
