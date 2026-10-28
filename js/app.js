@@ -1019,15 +1019,31 @@
       var nums = picker.get();
       if (nums.length !== 6) return;
       var r = findBestMatches(nums, draws, 5, 3);
+      // 1회부터 매주 이 번호로 1게임(1,000원)씩 샀다면: 등수별 횟수와 당첨금 합계
+      var counts = [0, 0, 0, 0, 0, 0], prize = 0, hasAll = true;
+      draws.forEach(function (d) {
+        var rk = rankOf(nums, d);
+        counts[rk]++;
+        if (rk) { prize += prizeOf(rk, d); if (!d.prizes && (rk === 2 || rk === 3)) hasAll = false; }
+      });
+      var spent = draws.length * 1000, rate = prize / spent * 100;
       close();
       result.hidden = false;
-      var s = r.summary;
       result.innerHTML =
-        '<div class="card-head"><div><h2 class="card-title">가장 많이 맞은 회차</h2><p class="card-sub">맞은 개수가 많은 ' + r.top.length + '개 회차를 최신 회차부터 보여 줘요</p></div></div>' +
+        '<div class="card-head"><div><h2 class="card-title">1~' + draws[draws.length - 1].round + '회 전체에 맞춰본 결과</h2><p class="card-sub">매주 같은 번호로 1게임(1,000원)씩 샀다고 가정</p></div></div>' +
         '<p class="group-label" style="margin-top:0">내가 고른 번호</p>' + balls(nums, { nowrap: true }) +
-        '<p class="hint" style="margin-top:10px">' + draws.length + '회 중 3개 이상 맞은 회차는 <b>' + r.total + '회</b>예요 ' +
-        '(3개 ' + s[3] + ' · 4개 ' + s[4] + ' · 5개 ' + s[5] + ' · 6개 ' + s[6] + ')</p>' +
-        (r.top.length ? '<div class="games" style="margin-top:14px">' + r.top.map(function (h) {
+        '<div class="tiles" style="margin-top:14px">' +
+        '<div class="tile"><span>총 구입액</span><b class="num">' + won(spent) + '</b></div>' +
+        '<div class="tile"><span>총 당첨금</span><b class="num prize">' + won(prize) + '</b></div>' +
+        '<div class="tile"><span>회수율</span><b class="num ' + (rate >= 100 ? 'win' : 'loss') + '">' + rate.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '%</b></div>' +
+        '<div class="tile"><span>당첨 횟수</span><b class="num">' + (draws.length - counts[0]) + '회</b></div></div>' +
+        '<table class="table" style="margin-top:14px"><thead><tr><th>등수</th><th>맞은 개수</th><th>횟수</th></tr></thead><tbody>' +
+        [1, 2, 3, 4, 5].map(function (k) { return '<tr><td>' + k + '등</td><td>' + ['', '6개', '5개+보너스', '5개', '4개', '3개'][k] + '</td><td class="num">' + counts[k] + '회</td></tr>'; }).join('') +
+        '<tr><td>낙첨</td><td>2개 이하</td><td class="num">' + counts[0] + '회</td></tr></tbody></table>' +
+        (hasAll ? '' : '<p class="hint" style="margin-top:8px">일부 회차는 2·3등 당첨금 정보가 없어 합계에서 빠졌어요.</p>') +
+        '<hr class="divider"><p class="group-label" style="margin-top:0">가장 많이 맞은 회차</p>' +
+        '<p class="hint">맞은 개수가 많은 ' + r.top.length + '개 회차를 최신 회차부터 보여 줘요</p>' +
+        (r.top.length ? '<div class="games" style="margin-top:10px">' + r.top.map(function (h) {
           return '<div class="game"><div class="game-body">' +
             '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
             '<b class="num">' + h.draw.round + '회 <span class="muted" style="font-weight:400">' + fmtDate(h.draw.date) + '</span></b>' +
@@ -1040,7 +1056,7 @@
         '<div class="btn-row" style="margin-top:14px"><button class="btn btn-secondary" type="button" id="best-again">번호 바꿔서 다시 조회</button>' +
         '<button class="btn btn-secondary" type="button" id="best-save" data-vault>이 번호 저장</button></div>';
       $('#best-again').addEventListener('click', open);
-      $('#best-save').addEventListener('click', function () { addToVault([nums], '가장 많이 맞은 회차'); });
+      $('#best-save').addEventListener('click', function () { addToVault([nums], '내 번호 맞춰보기'); });
       result.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
@@ -1113,19 +1129,19 @@
   }
 
   /* =====================================================
-     당첨 조회 (회차별 결과 + 내 번호 맞춰보기)
+     당첨 조회 (회차별 결과 + 용지 QR). 내 번호 맞춰보기는 통계의 '내 번호 찾기'로 합쳤습니다.
      ===================================================== */
   function initCheck() {
     var draws = [], cur = 0;
     function showTab(name) {
       $$('#check-tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
       $('#tab-round').hidden = name !== 'round';
-      $('#tab-mine').hidden = name !== 'mine';
       $('#tab-qr').hidden = name !== 'qr';
       try { history.replaceState(null, '', name === 'round' ? location.pathname : '#' + name); } catch {}
     }
     $$('#check-tabs button').forEach(function (b) { b.addEventListener('click', function () { showTab(b.getAttribute('data-tab')); }); });
-    showTab(location.hash === '#mine' ? 'mine' : location.hash === '#qr' ? 'qr' : 'round');
+    if (location.hash === '#mine') { location.replace('stats.html#best'); return; }   // 예전 주소는 통계로
+    showTab(location.hash === '#qr' ? 'qr' : 'round');
     initQr();
 
     // 회차별 결과
@@ -1165,57 +1181,7 @@
       go(+b.getAttribute('data-i')); $('#round-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
-    // 내 번호 맞춰보기
-    var picker = makePicker($('#pick-board'), function (picked) {
-      $('#pick-status').textContent = picked.length === 6 ? '6개를 모두 골랐어요' : picked.length + ' / 6개 선택';
-      $('#run-check').disabled = picked.length !== 6;
-    });
-    $('#pick-random').addEventListener('click', function () { picker.set(generate(1)[0]); });
-    $('#pick-clear').addEventListener('click', function () { picker.set([]); $('#check-result').hidden = true; });
-    var vault = loadVault(), sel = $('#pick-vault');
-    if (vault.length) {
-      sel.innerHTML = '<option value="">보관함에서 불러오기 (' + vault.length + '개)</option>' + vault.map(function (o, i) {
-        return '<option value="' + i + '">' + o.nums.map(pad).join(' ') + (o.label ? ' · ' + esc(o.label) : '') + '</option>';
-      }).join('');
-      sel.addEventListener('change', function () { if (sel.value !== '') picker.set(vault[+sel.value].nums); });
-    }
-    if (!VAULT_ON || !vault.length) sel.hidden = true;
-
-    $('#run-check').addEventListener('click', function () {
-      var nums = picker.get(), counts = [0, 0, 0, 0, 0, 0], prize = 0, best = null, hasAll = true;
-      draws.forEach(function (d) {
-        var r = rankOf(nums, d);
-        counts[r]++;
-        if (r) {
-          prize += prizeOf(r, d);
-          if (!d.prizes && (r === 2 || r === 3)) hasAll = false;
-          if (!best || r < best.rank || (r === best.rank && d.round > best.d.round)) best = { rank: r, d: d };
-        }
-      });
-      var spent = draws.length * 1000, rate = prize / spent * 100, box = $('#check-result');
-      box.hidden = false;
-      box.innerHTML =
-        '<div class="card-head"><div><h2 class="card-title">1~' + draws.length + '회 전체에 맞춰본 결과</h2><p class="card-sub">매주 같은 번호로 1게임(1,000원)씩 샀다고 가정</p></div></div>' +
-        balls(nums, { nowrap: true }) +
-        '<div class="tiles" style="margin-top:14px">' +
-        '<div class="tile"><span>총 구입액</span><b class="num">' + won(spent) + '</b></div>' +
-        '<div class="tile"><span>총 당첨금</span><b class="num prize">' + won(prize) + '</b></div>' +
-        '<div class="tile"><span>회수율</span><b class="num ' + (rate >= 100 ? 'win' : 'loss') + '">' + rate.toLocaleString('ko-KR', { maximumFractionDigits: 1 }) + '%</b></div>' +
-        '<div class="tile"><span>당첨 횟수</span><b class="num">' + (draws.length - counts[0]) + '회</b></div></div>' +
-        '<table class="table" style="margin-top:14px"><thead><tr><th>등수</th><th>횟수</th></tr></thead><tbody>' +
-        [1, 2, 3, 4, 5].map(function (r) { return '<tr><td>' + r + '등</td><td class="num">' + counts[r] + '회</td></tr>'; }).join('') +
-        '<tr><td>낙첨</td><td class="num">' + counts[0] + '회</td></tr></tbody></table>' +
-        (best ? '<hr class="divider"><p class="group-label" style="margin-top:0">가장 좋은 기록 · ' + best.d.round + '회 ' + RANK_TEXT[best.rank] + '</p>' +
-          balls(best.d.numbers, { bonus: best.d.bonus, size: 'sm', nowrap: true, hits: hitsOf(nums, best.d) }) +
-          '<p class="hint" style="margin-top:6px">' + fmtDate(best.d.date) + ' 추첨 · 당첨금 ' + comma(prizeOf(best.rank, best.d)) + '원</p>'
-          : '<p class="muted" style="margin-top:12px">3개 이상 맞은 회차가 한 번도 없어요.</p>') +
-        (hasAll ? '' : '<p class="hint" style="margin-top:8px">일부 회차는 2·3등 당첨금 정보가 없어 합계에서 빠졌어요.</p>') +
-        '<div class="btn-row" style="margin-top:14px" data-vault><button class="btn btn-secondary" type="button" id="save-checked">' + icon('save') + '이 번호 저장</button></div>';
-      $('#save-checked').addEventListener('click', function () { addToVault([nums], '당첨 조회'); });
-      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-
-    loadDraws().then(function (d) { draws = d; go(d.length - 1); $('#all-count').textContent = d.length; })
+    loadDraws().then(function (d) { draws = d; go(d.length - 1); })
       .catch(function () { loadError($('#round-card')); });
   }
 

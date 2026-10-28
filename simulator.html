@@ -26,12 +26,11 @@
   <main>
     <div class="page-head">
       <h1>당첨 조회</h1>
-      <p>회차별 당첨번호를 찾아보거나, 내 번호를 역대 전 회차에 맞춰 보거나, 산 용지의 QR로 당첨을 확인하세요.</p>
+      <p>회차별 당첨번호를 찾아보거나, 산 용지의 QR로 당첨을 확인하세요. 내 번호를 역대 전 회차에 맞춰 보려면 <a class="link" href="stats.html#best">통계 → 내 번호 찾기</a>로 가세요.</p>
     </div>
 
     <div class="seg" id="check-tabs" role="tablist" aria-label="조회 방식">
       <button type="button" role="tab" data-tab="round" aria-selected="true" aria-controls="tab-round">회차별 조회</button>
-      <button type="button" role="tab" data-tab="mine" aria-selected="false" aria-controls="tab-mine">내 번호 맞춰보기</button>
       <button type="button" role="tab" data-tab="qr" aria-selected="false" aria-controls="tab-qr">용지 QR</button>
     </div>
 
@@ -50,22 +49,6 @@
         <h2 class="card-title" id="recent-title" style="margin-bottom:6px">최근 10회</h2>
         <div class="draw-list" id="recent"></div>
       </section>
-    </div>
-
-    <div id="tab-mine" role="tabpanel" hidden style="display:flex;flex-direction:column;gap:16px">
-      <section class="card" aria-labelledby="pick-title">
-        <div class="card-head">
-          <div><h2 class="card-title" id="pick-title">번호 6개 고르기</h2><p class="card-sub" id="pick-status" aria-live="polite">0 / 6개 선택</p></div>
-          <button class="btn btn-ghost btn-sm" type="button" id="pick-clear">초기화</button>
-        </div>
-        <div class="board" id="pick-board"></div>
-        <div class="btn-row" style="margin-top:16px">
-          <button class="btn btn-secondary btn-sm" type="button" id="pick-random">무작위로 채우기</button>
-          <select class="input btn-sm" id="pick-vault" aria-label="보관함에서 불러오기" style="min-height:36px;font-size:13px;flex:1;min-width:0"></select>
-        </div>
-        <button class="btn btn-primary btn-block" type="button" id="run-check" style="margin-top:12px" disabled>1~<span id="all-count">전체</span>회에 맞춰보기</button>
-      </section>
-      <section class="card" id="check-result" hidden aria-live="polite" style="scroll-margin-top:72px"></section>
     </div>
 
     <div id="tab-qr" role="tabpanel" hidden style="display:flex;flex-direction:column;gap:16px">
