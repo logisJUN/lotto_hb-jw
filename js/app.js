@@ -1086,7 +1086,7 @@
     function rowHTML(r, detail) {
       return '<li><button type="button" class="rule-item" data-rule="' + r.id + '"><span class="rule-main"><b>' + esc(r.name) + '</b>' +
         (detail ? '<small>' + esc(detail) + '</small>' : '<small>' + esc(r.group) + ' · 발견 후 ' + afterTxt(r) + '</small>') + '</span>' +
-        '<span class="badge' + (r.rate < 0.1 ? ' prize' : '') + '" title="역대 ' + pctTxt(r.rate) + ' (1회부터 지금까지 맞은 비율)">' + (r.rate < 0.1 ? '드묾' : '흔함') + ' · ' + pctTxt(r.rate) + '</span></button></li>';
+        '<span class="badge' + (r.rate < 0.1 ? '' : ' prize') + '" title="역대 ' + pctTxt(r.rate) + ' (1회부터 지금까지 맞은 비율)">' + (r.rate < 0.1 ? '드묾' : '흔함') + ' · ' + pctTxt(r.rate) + '</span></button></li>';
     }
     function render() {
       var d = draws[idx], s = window.LottoRules.summary(res, idx);
