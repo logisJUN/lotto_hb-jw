@@ -251,6 +251,8 @@ main { padding: 4px 16px calc(96px + env(safe-area-inset-bottom)); display: flex
 }
 /* 다크: 선택된 칸이 바탕보다 밝게 떠 보이도록 */
 :root[data-theme="dark"] .seg button[aria-pressed="true"], :root[data-theme="dark"] .seg button[aria-selected="true"] { background: var(--surface-3); box-shadow: 0 1px 3px rgba(0,0,0,.35); }
+.seg.seg-sm { padding: 3px; }
+.seg.seg-sm button { min-height: 34px; font-size: 13px; }
 
 /* 번호 생성: 고정수 / 제외수 고르기 버튼 */
 .mode-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

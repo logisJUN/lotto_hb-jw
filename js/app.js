@@ -318,15 +318,54 @@
      번호 생성 엔진 (홈 빠른 뽑기 + 번호 생성 화면)
      ===================================================== */
   // opt: fixed[], excluded[], odd[] (허용하는 홀수 개수), sumMin, sumMax,
-  //      runMin (이 개수 이상 연속이면 뺌), endMin (같은 끝자리가 이 개수 이상이면 뺌)
+  //      runMin + runIn (runIn이면 이 개수 이상 연속을 꼭 넣고, 아니면 이 개수 이상 연속이면 뺌),
+  //      endMin + endIn (같은 끝자리도 같은 방식), lastIn[] (이 번호 중 1개 이상 꼭 넣기)
+  // '넣기' 조건은 무작위로만 뽑으면 거의 안 나오는 조합도 있어서, 조건에 맞는 번호를 먼저 몇 개 넣고 나머지를 채운 뒤 다시 검사합니다.
+  function pick(a) { return a[rnd(0, a.length - 1)]; }
   function generate(count, opt) {
     opt = opt || {};
     var fixed = opt.fixed || [], excluded = opt.excluded || [];
-    var pool = []; for (var n = 1; n <= 45; n++) if (fixed.indexOf(n) < 0 && excluded.indexOf(n) < 0) pool.push(n);
+    function free(n) { return n >= 1 && n <= 45 && excluded.indexOf(n) < 0; }
+    var pool = []; for (var n = 1; n <= 45; n++) if (fixed.indexOf(n) < 0 && free(n)) pool.push(n);
+    // 넣기 조건마다 '먼저 넣을 번호'를 고르는 함수. 이미 만족하면 [], 만들 수 없으면 null
+    var seeds = [];
+    if (opt.runIn && opt.runMin) seeds.push(function (s) {
+      if (longestRun(s.slice().sort(byNum)) >= opt.runMin) return [];
+      var starts = [];
+      for (var st = 1; st + opt.runMin - 1 <= 45; st++) {
+        var ok = true; for (var i = 0; i < opt.runMin; i++) if (!free(st + i)) ok = false;
+        if (ok) starts.push(st);
+      }
+      if (!starts.length) return null;
+      var a = pick(starts), r = []; for (var j = 0; j < opt.runMin; j++) r.push(a + j);
+      return r;
+    });
+    if (opt.endIn && opt.endMin) seeds.push(function (s) {
+      if (sameEndMax(s) >= opt.endMin) return [];
+      var digits = [];
+      for (var d = 0; d <= 9; d++) { var c = []; for (var k = d || 10; k <= 45; k += 10) if (free(k)) c.push(k); if (c.length >= opt.endMin) digits.push(c); }
+      if (!digits.length) return null;
+      var c2 = pick(digits).slice(), r = [];
+      while (r.length < opt.endMin) r.push(c2.splice(rnd(0, c2.length - 1), 1)[0]);
+      return r;
+    });
+    var lastIn = (opt.lastIn || []).filter(free);
+    if (opt.lastIn) seeds.push(function (s) {
+      if (s.some(function (x) { return lastIn.indexOf(x) >= 0; })) return [];
+      return lastIn.length ? [pick(lastIn)] : null;
+    });
     var out = [], seen = {}, tries = 0;
     while (out.length < count && tries < 40000) {
       tries++;
-      var p = pool.slice(), s = fixed.slice();
+      var s = fixed.slice(), dead = false;
+      for (var q = 0; q < seeds.length; q++) {
+        var add = seeds[q](s);
+        if (!add) { dead = true; break; }
+        add.forEach(function (x) { if (s.indexOf(x) < 0) s.push(x); });
+      }
+      if (dead) break;
+      if (s.length > 6) continue;
+      var p = pool.filter(function (x) { return s.indexOf(x) < 0; });
       while (s.length < 6 && p.length) s.push(p.splice(rnd(0, p.length - 1), 1)[0]);
       if (s.length < 6) break;
       s.sort(byNum);
@@ -335,8 +374,9 @@
       if (opt.odd && opt.odd.length && opt.odd.indexOf(oddCount(s)) < 0) continue;
       if (opt.sumMin != null && sum(s) < opt.sumMin) continue;
       if (opt.sumMax != null && sum(s) > opt.sumMax) continue;
-      if (opt.runMin && longestRun(s) >= opt.runMin) continue;
-      if (opt.endMin && sameEndMax(s) >= opt.endMin) continue;
+      if (opt.runMin && (longestRun(s) >= opt.runMin) !== !!opt.runIn) continue;
+      if (opt.endMin && (sameEndMax(s) >= opt.endMin) !== !!opt.endIn) continue;
+      if (opt.lastIn && !s.some(function (x) { return lastIn.indexOf(x) >= 0; })) continue;
       seen[key] = 1; out.push(s);
     }
     return out;
@@ -641,13 +681,17 @@
     /* 연속 번호 / 같은 끝자리 기준 개수
        - 연속: 2~6개. 한 게임은 번호 6개라 6개를 넘는 연속은 있을 수 없고, 1개는 "연속"이 아니에요.
        - 같은 끝자리: 2~5개. 끝자리가 같은 번호는 많아야 5개(1·11·21·31·41)라 6개는 있을 수 없어요. */
+    // 넣기·빼기: io[key]가 'in'이면 그 모양을 꼭 넣고, 'out'(기본)이면 그 모양을 뺍니다.
+    var io = { run: 'out', end: 'out', last: 'out' };
+    function ioWord(key) { return io[key] === 'in' ? '넣기' : '빼기'; }
+    function egTail(key) { return io[key] === 'in' ? ' 같은 조합을 꼭 넣어요' : ' 같은 조합 제외'; }
     var COUNT_RULE = {
       run: { min: 2, max: 6, low: '연속은 2개부터 셀 수 있어요', high: '한 게임은 번호가 6개라 6개를 넘게 연속될 수 없어요',
-        title: function (n) { return n + '개 이상 연속 번호 빼기'; },
-        eg: function (n) { var a = []; for (var i = 0; i < n; i++) a.push(12 + i); return '예: ' + a.join('·') + ' 같은 조합 제외'; } },
+        title: function (n) { return n + '개 이상 연속 번호 ' + ioWord('run'); },
+        eg: function (n) { var a = []; for (var i = 0; i < n; i++) a.push(12 + i); return '예: ' + a.join('·') + egTail('run'); } },
       end: { min: 2, max: 5, low: '같은 끝자리는 2개부터 셀 수 있어요', high: '끝자리가 같은 번호는 많아야 5개(1·11·21·31·41)라 5개를 넘을 수 없어요',
-        title: function (n) { return '같은 끝자리 ' + n + '개 이상 빼기'; },
-        eg: function (n) { return '예: ' + [3, 13, 23, 33, 43].slice(0, n).join('·') + ' 같은 조합 제외'; } }
+        title: function (n) { return '같은 끝자리 ' + n + '개 이상 ' + ioWord('end'); },
+        eg: function (n) { return '예: ' + [3, 13, 23, 33, 43].slice(0, n).join('·') + egTail('end'); } }
     };
     // 입력값을 검사해 {n} 또는 {error}를 돌려주고, 화면(제목·예시·오류 문구·버튼)을 맞춥니다.
     function checkCount(key) {
@@ -661,6 +705,7 @@
       msg.hidden = !err; msg.textContent = err ? err + ' (' + rule.min + '~' + rule.max + ')' : '';
       $('[data-step="-1"]', box).disabled = !err && n <= rule.min;
       $('[data-step="1"]', box).disabled = !err && n >= rule.max;
+      $('#' + key + '-tail').textContent = io[key] === 'in' ? '개 이상 넣기' : '개 이상이면 빼기';
       if (!err) {
         $('#' + key + '-title').textContent = rule.title(n);
         $('#' + key + '-eg').textContent = rule.eg(n);
@@ -683,19 +728,38 @@
     });
 
     var lastDraw = null;
-    loadDraws().then(function (draws) {
-      lastDraw = draws[draws.length - 1];
-      $('#last-nums').textContent = lastDraw.round + '회 번호 ' + lastDraw.numbers.join(', ') + '을(를) 빼고 뽑아요';
-    }).catch(function () { $('#last-nums').textContent = '데이터를 불러오지 못해 쓸 수 없어요'; });
+    function lastText() {
+      var t = '지난 회차 번호 ' + ioWord('last');
+      $('#last-title').textContent = t; $('#sw-last').setAttribute('aria-label', t);
+      if (lastDraw) $('#last-nums').textContent = lastDraw.round + '회 번호 ' + lastDraw.numbers.join(', ') + (io.last === 'in' ? ' 중 1개 이상 넣어 뽑아요' : '을(를) 빼고 뽑아요');
+    }
+    loadDraws().then(function (draws) { lastDraw = draws[draws.length - 1]; lastText(); })
+      .catch(function () { $('#last-nums').textContent = '데이터를 불러오지 못해 쓸 수 없어요'; });
+
+    $$('[data-io]').forEach(function (g) {
+      var key = g.getAttribute('data-io');
+      $$('button', g).forEach(function (b) {
+        b.addEventListener('click', function () {
+          io[key] = b.getAttribute('data-m');
+          $$('button', g).forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+          if (key === 'last') lastText(); else checkCount(key);
+        });
+      });
+    });
 
     var result = [];
     $('#gen-btn').addEventListener('click', function () {
       var excluded = list('exc');
-      if (on('#sw-last') && lastDraw) lastDraw.numbers.forEach(function (n) { if (excluded.indexOf(n) < 0 && state[n] !== 'fix') excluded.push(n); });
+      var userExc = excluded.slice();
+      if (on('#sw-last') && lastDraw && io.last === 'out') lastDraw.numbers.forEach(function (n) { if (excluded.indexOf(n) < 0 && state[n] !== 'fix') excluded.push(n); });
       var opt = {
         fixed: list('fix'), excluded: excluded,
         odd: $$('#odd .chip[aria-pressed="true"]').map(function (c) { return +c.getAttribute('data-odd'); })
       };
+      if (on('#sw-last') && lastDraw && io.last === 'in') {
+        if (lastDraw.numbers.every(function (n) { return userExc.indexOf(n) >= 0; })) { toast('지난 회차 번호를 모두 뺄 번호로 골라서 넣을 수 없어요'); return; }
+        opt.lastIn = lastDraw.numbers.slice();
+      }
       // 켜 둔 조건의 숫자를 검사합니다. 잘못되면 생성하지 않고 그 칸으로 안내합니다.
       var fixed = list('fix');
       var checks = [['run', '#sw-run', 'runMin', longestRun, '연속 번호'], ['end', '#sw-end', 'endMin', sameEndMax, '같은 끝자리']];
@@ -704,9 +768,10 @@
         if (!on(c[1])) continue;
         var r = checkCount(c[0]);
         if (r.error) { toast(r.error); $('#' + c[0] + '-n').focus(); return; }
-        // 고정수만으로 이미 기준에 걸리면 어떤 조합도 만들 수 없어요
-        if (fixed.length && c[3](fixed) >= r.n) { toast('고정수(' + fixed.join(', ') + ')에 이미 ' + c[4] + '가 ' + r.n + '개 이상이라 이 조건으로는 만들 수 없어요'); return; }
+        // 빼기인데 고정수만으로 이미 기준에 걸리면 어떤 조합도 만들 수 없어요
+        if (io[c[0]] === 'out' && fixed.length && c[3](fixed) >= r.n) { toast('고정수(' + fixed.join(', ') + ')에 이미 ' + c[4] + '가 ' + r.n + '개 이상이라 이 조건으로는 만들 수 없어요'); return; }
         opt[c[2]] = r.n;
+        if (io[c[0]] === 'in') opt[c[0] + 'In'] = true;
       }
       if (on('#sw-sum')) {
         var a = parseInt($('#sum-min').value, 10), b = parseInt($('#sum-max').value, 10);
@@ -868,13 +933,6 @@
           '<p class="group-label">이번 주 기운</p><p class="saju-me">추첨일 ' + kstDateText(next.at).split(' 오후')[0] + '은 <b>' + S.name(drawDay) + '(' + S.hanja(drawDay) + ')일</b>, ' +
           '<b class="el-text-' + w.weekEl + '">' + S.EL[w.weekEl] + '(' + S.EL_H[w.weekEl] + ')</b> 기운의 날이에요. 이 기운의 번호도 조금 더 자주 골랐어요.</p>' +
 
-          '<details class="fold explain"><summary><span>어떻게 정하나요?</span><svg class="chev" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><ol>' +
-          '<li><b>사주팔자</b>: 년주·월주는 절기(입춘 등)를 기준으로 나눠요. 절기는 태어난 날 태양의 위치(황경)를 계산해서 찾아요. 일주는 날짜로, 시주는 일간과 태어난 시로 구해요.</li>' +
-          '<li><b>오행 세기</b>: 8글자(시를 모르면 6글자)가 목·화·토·금·수 중 무엇인지 세서, 가장 적은 오행을 <b>채울 기운</b>으로 정해요.</li>' +
-          '<li><b>번호와 오행</b>: 전통 하도(河圖) 수리에 따라 번호의 끝자리로 오행을 정해요. 수 1·6, 화 2·7, 목 3·8, 금 4·9, 토 5·0.</li>' +
-          '<li><b>강력한 번호</b>: 채울 기운에 해당하는 번호 중 하나를 먼저 골라요.</li>' +
-          '<li><b>나머지 5개</b>: 채울 기운의 번호를 가장 많이, 나(일간)와 이번 추첨일의 기운을 그다음으로 자주, 넘치는 기운은 덜 고르도록 무게를 둬서 뽑아요.</li>' +
-          '<li><b>매주 같은 번호</b>: 생년월일·시와 추첨 회차를 합쳐 만든 고정된 난수로 뽑기 때문에, 같은 주에는 언제 봐도 같은 번호가 나와요.</li></ol></details>' +
           '<p class="hint" style="margin-top:10px">재미로 보는 전통 풀이예요. 사주 번호도 다른 조합과 당첨 확률은 같아요.</p>';
         $('#saju-copy').addEventListener('click', function () { copySets([w.nums]); });
         $('#saju-save').addEventListener('click', function () { addToVault([w.nums], '사주 번호 ' + next.round + '회'); });
