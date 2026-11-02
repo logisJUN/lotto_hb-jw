@@ -1,4 +1,4 @@
-/* 로또랩 - 화면 동작 (순수 JavaScript, 라이브러리 없음)
+/* 로또틱스 - 화면 동작 (순수 JavaScript, 라이브러리 없음)
    모든 수치는 data/lotto.json(매주 자동 갱신)으로 계산합니다. */
 (function () {
   'use strict';
@@ -9,7 +9,17 @@
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var page = document.body.getAttribute('data-page');
-  var VAULT_KEY = 'lottolab.vault', THEME_KEY = 'lottolab.theme';
+  var VAULT_KEY = 'lottoics.vault', THEME_KEY = 'lottoics.theme';
+  // 이름을 로또랩 → 로또틱스로 바꾸면서 저장 이름도 lottolab.* → lottoics.*로 바꿨습니다.
+  // 예전 이름으로 저장된 값(테마·보관함·사주 입력·마지막 백업)을 한 번 옮기고 예전 값은 지웁니다.
+  try {
+    ['theme', 'vault', 'saju', 'lastBackup'].forEach(function (k) {
+      var old = localStorage.getItem('lottolab.' + k);
+      if (old === null) return;
+      if (localStorage.getItem('lottoics.' + k) === null) localStorage.setItem('lottoics.' + k, old);
+      localStorage.removeItem('lottolab.' + k);
+    });
+  } catch { /* 저장소를 못 쓰면 옮길 것도 없음 */ }
   var DAY = 864e5, DRAW_UTC_MIN = 11 * 60 + 35;   // 추첨: 토요일 20:35(KST) = 11:35(UTC)
   var WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -111,10 +121,10 @@
   }
 
   /* 보관함 백업·옮기기
-     - 파일: {app:'lottolab', version:1, exportedAt, items:[보관함 항목]} 형식의 JSON
+     - 파일: {app:'lottoics', version:1, exportedAt, items:[보관함 항목]} 형식의 JSON
      - 링크: vault.html#import=<짧게 줄인 항목을 base64url로 바꾼 값>. 링크를 열면 미리 보고 넣을지 묻습니다.
      - 가져올 때는 번호·회차·저장 시각이 같은 항목을 중복으로 보고 건너뜁니다. */
-  var BACKUP_KEY = 'lottolab.lastBackup';
+  var BACKUP_KEY = 'lottoics.lastBackup';
   // 바깥에서 들어온 항목을 검사해 보관함 형식으로 맞춥니다. 잘못된 항목은 null.
   function cleanItem(o) {
     if (!o || !Array.isArray(o.nums) || o.nums.length !== 6) return null;
@@ -262,9 +272,9 @@
     var top = $('#top');
     if (top) {
       top.innerHTML =
-        '<a class="brand" href="index.html" aria-label="로또랩 홈">' +
+        '<a class="brand" href="index.html" aria-label="로또틱스 홈">' +
         '<svg class="brand-mark" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="#4f46e5"/><circle cx="12" cy="13" r="5" fill="#fbbf24"/><circle cx="22" cy="13" r="5" fill="#60a5fa"/><circle cx="17" cy="22" r="5" fill="#f87171"/></svg>' +
-        '<span><span class="brand-name">로또랩</span><span class="brand-sub" id="next-sub">당첨 데이터를 불러오는 중</span></span></a>' +
+        '<span><span class="brand-name">로또틱스<span class="brand-tag">lotto + statistics</span></span><span class="brand-sub" id="next-sub">당첨 데이터를 불러오는 중</span></span></a>' +
         '<button class="icon-btn" id="theme-btn" type="button"></button>';
       $('#theme-btn').addEventListener('click', function () {
         var order = ['system', 'light', 'dark'], next = order[(order.indexOf(themePref()) + 1) % 3];
@@ -798,7 +808,7 @@
   /* 번호 생성 > 사주로 만들기 (계산은 js/saju.js)
      생년월일·시 → 사주팔자 → 오행 → 이번 주(다음 추첨 회차) 번호 6개와 강력한 번호 1개.
      같은 생년월일·시면 다음 추첨 전까지 항상 같은 번호입니다(추첨 회차를 시드로 씀). */
-  var SAJU_KEY = 'lottolab.saju';
+  var SAJU_KEY = 'lottoics.saju';
   function initSaju() {
     var S = window.LottoSaju; if (!S) return;
     var dateEl = $('#saju-date'), hourEl = $('#saju-hour'), err = $('#saju-err'), box = $('#saju-result');
@@ -1431,12 +1441,12 @@
     // 1) 파일로 내보내기: 휴대폰은 공유 창(파일 앱·메신저 등), 그 밖에는 내려받기
     $('#backup-export').addEventListener('click', function () {
       var v = loadVault(); if (!v.length) return;
-      var now = new Date(), name = 'lottolab-backup-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.json';
-      var text = JSON.stringify({ app: 'lottolab', version: 1, exportedAt: now.toISOString(), items: v }, null, 2);
+      var now = new Date(), name = 'lottoics-backup-' + now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '.json';
+      var text = JSON.stringify({ app: 'lottoics', version: 1, exportedAt: now.toISOString(), items: v }, null, 2);
       var file = null;
       try { file = new File([text], name, { type: 'application/json' }); } catch {}
       if (file && navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
-        navigator.share({ files: [file], title: '로또랩 보관함 백업' }).then(function () { markBackup(); toast('백업 파일을 보냈어요'); }, function () {});
+        navigator.share({ files: [file], title: '로또틱스 보관함 백업' }).then(function () { markBackup(); toast('백업 파일을 보냈어요'); }, function () {});
         return;
       }
       var a = document.createElement('a'), url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
@@ -1451,9 +1461,9 @@
       if (!f) return;
       var rd = new FileReader();
       rd.onload = function () {
-        var data; try { data = JSON.parse(rd.result); } catch { toast('로또랩 백업 파일이 아니에요'); return; }
+        var data; try { data = JSON.parse(rd.result); } catch { toast('로또틱스 백업 파일이 아니에요'); return; }
         var items = Array.isArray(data) ? data : data && Array.isArray(data.items) ? data.items : null;
-        if (!items) { toast('로또랩 백업 파일이 아니에요'); return; }
+        if (!items) { toast('로또틱스 백업 파일이 아니에요'); return; }
         report(mergeVault(items));
       };
       rd.onerror = function () { toast('파일을 읽을 수 없어요'); };
@@ -1465,7 +1475,7 @@
       var url = vaultLink(v), long = url.length > 8000;
       if (long) toast('번호가 많아 링크가 길어요(' + comma(url.length) + '자). 메신저에서 잘릴 수 있으니 [파일로 내보내기]를 권해요');
       if (navigator.share) {
-        navigator.share({ title: '로또랩 보관함', text: '로또랩 보관함 ' + v.length + '게임', url: url }).then(function () { markBackup(); }, function () {});
+        navigator.share({ title: '로또틱스 보관함', text: '로또틱스 보관함 ' + v.length + '게임', url: url }).then(function () { markBackup(); }, function () {});
         return;
       }
       copyText(url).then(function (ok) {

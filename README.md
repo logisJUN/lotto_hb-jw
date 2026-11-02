@@ -1,4 +1,4 @@
-# 로또랩 (LottoLab)
+# 로또틱스 (Lottoics)
 
 역대 로또 당첨번호를 조회하고, 번호를 뽑아 저장하고, 당첨 여부를 확인하는 모바일 웹앱입니다. 빌드 과정 없이 정적 파일만으로 동작하며, 모든 수치는 매주 자동으로 갱신되는 실제 당첨 데이터(`data/lotto.json`)로 계산합니다.
 
@@ -53,7 +53,7 @@ analysis/              회차별 패턴 분석 기록과 규칙 성적표 (자�
 
 ## GitHub Pages로 임시 사이트 열기
 
-1. GitHub에서 새 저장소(Repository)를 만듭니다. (예: `lottolab`)
+1. GitHub에서 새 저장소(Repository)를 만듭니다. (예: `lottoics`)
 2. 이 폴더 안의 파일 전체를 저장소에 업로드합니다. (`Add file` → `Upload files`)
 3. 저장소의 `Settings` → `Pages`에서 Source를 `Deploy from a branch`, Branch를 `main` / `(root)`로 두고 `Save`를 누릅니다.
 4. 1~2분 뒤 `https://<GitHub 아이디>.github.io/<저장소 이름>/` 주소로 열립니다.

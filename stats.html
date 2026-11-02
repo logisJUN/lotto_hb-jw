@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f4f6fb">
 <meta name="description" content="역대 로또 당첨번호 출현 횟수와 패턴 통계">
-<title>통계 · 로또랩</title>
+<title>통계 · 로또틱스</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Crect width='34' height='34' rx='10' fill='%234f46e5'/%3E%3Ccircle cx='12' cy='13' r='5' fill='%23fbbf24'/%3E%3Ccircle cx='22' cy='13' r='5' fill='%2360a5fa'/%3E%3Ccircle cx='17' cy='22' r='5' fill='%23f87171'/%3E%3C/svg%3E">
 <script>
   // 화면이 그려지기 전에 테마를 정해 깜빡임을 막습니다.
   (function () {
-    var t; try { t = localStorage.getItem('lottolab.theme'); } catch (e) {}
+    var t; try { t = localStorage.getItem('lottoics.theme') || localStorage.getItem('lottolab.theme'); } catch (e) {}
     if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', t);
   })();

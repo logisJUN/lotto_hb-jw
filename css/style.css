@@ -1,5 +1,5 @@
 /* =========================================================
-   로또랩 디자인 시스템
+   로또틱스 디자인 시스템
    - 색은 역할별 토큰으로만 씁니다. 화면 코드에 색 값을 직접 쓰지 않습니다.
    - 라이트가 기본, 기기 설정(prefers-color-scheme)이나 머리말의 테마 버튼으로 다크 전환.
    - 로또 공 색(노랑/파랑/빨강/회색/초록)은 공에만 씁니다. 화면 장식에는 쓰지 않습니다.
@@ -121,6 +121,7 @@ html:not(.vault-on) [data-vault] { display: none !important; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { width: 34px; height: 34px; flex: none; }
 .brand-name { font-weight: 800; font-size: 18px; letter-spacing: -.02em; line-height: 1.2; }
+.brand-tag { margin-left: 6px; font-size: 10px; font-weight: 600; letter-spacing: .02em; color: var(--text-3); vertical-align: 2px; }
 .brand-sub { display: block; font-size: 12px; color: var(--text-3); line-height: 1.3; }
 .brand-sub b { color: var(--primary-text); font-weight: 700; }
 .icon-btn {

@@ -1,4 +1,4 @@
-# 로또랩 (LottoLab)
+# 로또틱스 (Lottoics)
 
 빌드 과정 없는 정적 모바일 웹앱입니다. GitHub Pages가 `main` 브랜치를 그대로 배포합니다.
 
@@ -17,7 +17,7 @@
 - 색 역할: `--primary` 브랜드·주요 버튼·선택, `--prize` 당첨금, `--win` 당첨·일치, `--danger` 삭제·제외. 로또 공 색은 `.ball.y/.b/.r/.g/.n`에만 씁니다.
 - `js/app.js`: 공통(데이터 읽기, 등수 계산 `rankOf`, 가장 많이 맞은 회차 `findBestMatches`, 번호 생성 `generate`, 6개 고르기 판 `makePicker`, 보관함, 테마) 다음에 화면별 `initHome`/`initGenerate`/`initStats`(+`initBestMatch`: 내 번호 맞춰보기 = 매주 샀을 때의 당첨 성적 + 가장 많이 맞은 회차)/`initCheck`(회차별 조회·용지 QR, 예전 `simulator.html#mine`은 `stats.html#best`로 보냄)/`initVault`.
 - 번호 생성 조건: 연속 번호(`runMin`)·같은 끝자리(`endMin`)·지난 회차 번호는 넣기/빼기를 고릅니다(`runIn`·`endIn`·`lastIn`, 기본은 빼기). 넣기는 `generate`가 조건에 맞는 번호를 먼저 넣고 나머지를 채운 뒤 모든 조건을 다시 검사합니다.
-- 사주 번호: 계산은 `js/saju.js`(브라우저·Node 겸용: `pillars`, `dayPillar`, `weeklyNumbers`), 화면은 번호 생성의 `initSaju`(탭 `#saju`). 시드는 `생년월일|시|다음 추첨 회차`라서 같은 주에는 항상 같은 번호가 나와야 합니다. 이 시드나 가중치를 바꾸면 그 주의 번호가 바뀌므로 CHANGELOG에 알립니다. 마지막 입력은 `lottolab.saju`에 저장합니다(`{cal:'solar', date, hour}` 또는 `{cal:'lunar', ly, lm, ld, leap, hour}`). 음력은 `js/vendor/korean-lunar-calendar.min.js`(KASI 기준, 필요할 때만 불러옴)로 양력으로 바꾼 뒤 같은 계산을 하므로, 시드는 항상 양력 날짜입니다.
+- 사주 번호: 계산은 `js/saju.js`(브라우저·Node 겸용: `pillars`, `dayPillar`, `weeklyNumbers`), 화면은 번호 생성의 `initSaju`(탭 `#saju`). 시드는 `생년월일|시|다음 추첨 회차`라서 같은 주에는 항상 같은 번호가 나와야 합니다. 이 시드나 가중치를 바꾸면 그 주의 번호가 바뀌므로 CHANGELOG에 알립니다. 마지막 입력은 `lottoics.saju`에 저장합니다(`{cal:'solar', date, hour}` 또는 `{cal:'lunar', ly, lm, ld, leap, hour}`). 음력은 `js/vendor/korean-lunar-calendar.min.js`(KASI 기준, 필요할 때만 불러옴)로 양력으로 바꾼 뒤 같은 계산을 하므로, 시드는 항상 양력 날짜입니다.
 - 화면 안 탭은 `role="tablist"` + `data-tab` 버튼과 `#tab-<이름>` 패널로 만들고, 주소 `#이름`으로 바로 열립니다(통계는 공통 `setupTabs`, 번호 생성·당첨 조회는 각자). 새 기능을 추가하면 **홈의 기능 지도(`index.html`의 `.menu-grid`)에도 타일을 추가**해 찾아갈 수 있게 합니다.
 - 아래에서 올라오는 창은 `<dialog class="sheet">`를 씁니다(통계의 번호 고르기 창, 당첨 조회의 QR 카메라 창).
 - 용지 QR: `parseTicket`(주소의 `v=` → 회차 4자리 + 게임마다 글자 1자·12자리), `readQR`(BarcodeDetector가 없으면 `js/vendor/jsQR.min.js`를 그때 불러옴), 화면은 `initQr`. 외부 CDN은 쓰지 않습니다.
@@ -28,10 +28,11 @@
 
 ## 알아둘 점
 
+- 이름은 **로또틱스(Lottoics)** 입니다(예전 이름 로또랩). 머리말 로고 옆에만 작게 `lotto + statistics`를 보여 주고 다른 곳에는 쓰지 않습니다. 브라우저 저장 이름은 `lottoics.*`이며, `js/app.js` 맨 위에서 예전 `lottolab.*` 값을 한 번 옮기고 지웁니다(각 페이지 `<head>`의 테마 스크립트도 예전 키를 함께 읽어 첫 방문 깜빡임을 막음). 예전 백업 파일(`app:'lottolab'`)도 그대로 가져올 수 있어야 합니다.
 - **보관함은 지금 숨김 상태입니다**(사용자 요청). `js/app.js`의 `VAULT_ON = false`면 하단 탭에서 빠지고, `data-vault`가 붙은 요소(홈의 내 번호 관리·내 번호 결과, 저장 버튼, 당첨 조회의 보관함에서 불러오기 등)는 CSS `html:not(.vault-on) [data-vault]`로 숨기며, `vault.html`은 홈으로 보냅니다. 저장과 관련된 화면 요소를 새로 만들면 `data-vault`를 붙입니다. 다시 켜 달라고 하면 `VAULT_ON = true`로 바꾸고 README·CHANGELOG를 맞춥니다.
 - 화면의 모든 수치는 `data/lotto.json`으로 계산합니다. 근거 없는 수치나 "당첨 확률을 높인다"는 식의 문구는 넣지 않습니다.
 - 보관함은 최대 `VAULT_MAX`(500)게임입니다. 가득 차면 저장·가져오기를 막고 알리며, 있던 항목을 지우지 않습니다. 결과가 없는 항목의 대상 회차는 **저장 시각** 기준(`drawAfter`)이고, 추첨이 지났는데 데이터가 없으면 "결과 수집 중"(`pendingDraw`, `roundAt`)으로 표시합니다. `nextDraw`는 지금 이후 첫 추첨입니다.
-- 보관함 항목(`lottolab.vault`)은 `{nums, label, at, weekly?, round?}` 형식입니다. `round`가 있으면(QR 용지) 그 회차로, 없으면 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).
-- 보관함 백업: 파일은 `{app:'lottolab', version:1, exportedAt, items}`, 링크는 `vault.html#import=<base64url>`(항목을 `n`·`t`·`l`·`w`·`r`로 줄임). 가져올 때는 `cleanItem`으로 검사하고(번호, 저장 시각 2002-12 ~ 지금+1일), `mergeVault`가 번호·회차·저장 시각이 같은 항목을 건너뜁니다. 보관함 항목 형식을 바꾸면 이 세 곳과 `version`도 함께 맞춥니다.
+- 보관함 항목(`lottoics.vault`)은 `{nums, label, at, weekly?, round?}` 형식입니다. `round`가 있으면(QR 용지) 그 회차로, 없으면 저장 시각 이후 첫 추첨으로 당첨 여부를 판단하고, `weekly: true`(매주 구매)면 저장 시각 이후 모든 추첨을 확인해 누적합니다(`vaultResult`, `weeklyTotals`).
+- 보관함 백업: 파일은 `{app:'lottoics', version:1, exportedAt, items}`, 링크는 `vault.html#import=<base64url>`(항목을 `n`·`t`·`l`·`w`·`r`로 줄임). 가져올 때는 `cleanItem`으로 검사하고(번호, 저장 시각 2002-12 ~ 지금+1일), `mergeVault`가 번호·회차·저장 시각이 같은 항목을 건너뜁니다. 보관함 항목 형식을 바꾸면 이 세 곳과 `version`도 함께 맞춥니다.
 - CSS의 `color-mix`·`cqw`에는 지원하지 않는 브라우저용 기본값(앞줄 값 또는 `@supports not`)을 함께 둡니다.
 - 로컬 확인은 `python3 -m http.server`로 띄워서 합니다. `file://`로 열면 `data/lotto.json`을 읽지 못합니다. 라이트·다크 둘 다 390px 폭에서 확인합니다.
